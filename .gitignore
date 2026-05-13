@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pth
+*.keras
+.env
+.claude/
+outputs/figures/
+outputs/models/
