@@ -1,0 +1,12 @@
+=== Sources de données — BESI Maroc ===
+
+IPC (variable cible) :
+  Source attendue : World Bank FP.CPI.TOTL (MA)
+  Erreur API      : No module named 'pandas_datareader'
+  Fallback        : ipc_processed.csv (données HCP traitées en session précédente)
+
+Signaux comportementaux :
+  Google Trends : réel (pytrends, geo='MA', 2010-2024)
+  Reddit        : simulé
+  YouTube       : simulé
+  → Pour v2 : seul Google Trends utilisé comme exogène SARIMAX

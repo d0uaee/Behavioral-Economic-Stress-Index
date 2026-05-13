@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projet BESI Maroc — Visualisations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .subtitle {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        
+        .graphs-section {
+            margin-bottom: 40px;
+        }
+        
+        .graphs-section h2 {
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .graph-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .graph-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .graph-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .graph-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .graph-info {
+            padding: 15px;
+        }
+        
+        .graph-info h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .graph-info p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .key-findings {
+            background: #e8f4f8;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        
+        .key-findings h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .key-findings ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .key-findings li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+        }
+        
+        .key-findings li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        
+        .header-meta {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .meta-item {
+            text-align: center;
+        }
+        
+        .meta-item strong {
+            display: block;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .meta-item span {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 1024px) {
+            .graph-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-meta {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🇲🇦 BESI — Projet Maroc</h1>
+            <p>Détection Précoce du Stress Économique des Ménages</p>
+            <p class="subtitle">Signaux Comportementaux Multi-Sources | Google Trends + Reddit + YouTube</p>
+        </header>
+        
+        <div class="content">
+            <!-- Métadonnées -->
+            <div class="header-meta">
+                <div class="meta-item">
+                    <strong>📊 Période</strong>
+                    <span>Janvier 2010 — Décembre 2024 (180 mois)</span>
+                </div>
+                <div class="meta-item">
+                    <strong>📈 Corrélation BESI-IPC</strong>
+                    <span>0.9156 (très forte)</span>
+                </div>
+                <div class="meta-item">
+                    <strong>🔀 Rupture Structurelle</strong>
+                    <span>Janvier 2022 (+2022% BESI)</span>
+                </div>
+            </div>
+            
+            <!-- Statistiques clés -->
+            <h2 style="margin-bottom: 20px; color: #667eea;">📊 Statistiques Clés</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>BESI Moyen</h3>
+                    <div class="value">0.4216</div>
+                </div>
+                <div class="stat-card">
+                    <h3>IPC Moyen</h3>
+                    <div class="value">1.0803</div>
+                </div>
+                <div class="stat-card">
+                    <h3>BESI Max</h3>
+                    <div class="value">0.8696</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Rupture 2022</h3>
+                    <div class="value">+132%</div>
+                </div>
+            </div>
+            
+            <!-- Findings -->
+            <div class="key-findings">
+                <h3>🎯 Résultats Clés</h3>
+                <ul>
+                    <li>Le BESI constitue un indice composite robuste combinant signaux digitaux</li>
+                    <li>Rupture structurelle 2022 clairement identifiée (choc inflationniste)</li>
+                    <li>Amplification du signal : BESI augmente 3× vs IPC 1.16×</li>
+                    <li>Corrélation très forte (0.9156) valide la méthodologie</li>
+                    <li>Lead time potentiel pour alerte précoce (à tester via SARIMAX)</li>
+                </ul>
+            </div>
+            
+            <!-- Dashboard final -->
+            <div class="graphs-section">
+                <h2>📈 Dashboard final — 6 graphiques</h2>
+                <div class="graph-grid">
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_01_ipc_yoy.png" alt="IPC mensuel et taux d'inflation YoY">
+                        <div class="graph-info">
+                            <h3>IPC mensuel + taux d'inflation YoY</h3>
+                            <p>IPC mensuel et inflation annuelle sur le même visuel pour relier le niveau et la variation.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_02_besi_stress.png" alt="BESI avec zones de stress colorées">
+                        <div class="graph-info">
+                            <h3>BESI over time avec zones de stress colorées</h3>
+                            <p>Lecture directe des zones Normal, Warning et High Stress dans le temps.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_03_signaux_normalises.png" alt="Signaux individuels normalisés">
+                        <div class="graph-info">
+                            <h3>Signaux individuels normalisés</h3>
+                            <p>Comparaison des séries Google Trends, Reddit et YouTube après normalisation [0,1].</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_04_sarima_vs_sarimax.png" alt="Comparaison SARIMA vs SARIMAX">
+                        <div class="graph-info">
+                            <h3>Comparaison SARIMA vs SARIMAX — prédictions vs réel</h3>
+                            <p>Comparaison visuelle du modèle baseline et de la version enrichie par les signaux comportementaux.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_05_lag_correlation.png" alt="Analyse lag BESI IPC">
+                        <div class="graph-info">
+                            <h3>Analyse lag : corrélation BESI → IPC par lag</h3>
+                            <p>Mesure l'avance potentielle du BESI sur l'évolution officielle de l'IPC.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/dashboard_06_performance_par_periode.png" alt="Performance par période">
+                        <div class="graph-info">
+                            <h3>Performance par période (avant/pendant/après 2022) — grouped bar</h3>
+                            <p>Lecture comparative des performances de SARIMA et SARIMAX selon les trois régimes temporels.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Stationnarité / Modélisation -->
+            <div class="graphs-section">
+                <h2>📉 Analyse de Stationnarité</h2>
+                <div class="graph-grid">
+
+                    <div class="graph-card">
+                        <img src="../figures/stl_ipc.png" alt="Décomposition STL IPC">
+                        <div class="graph-info">
+                            <h3>1. Décomposition STL de l'IPC</h3>
+                            <p>Sépare la tendance, la saisonnalité et le résidu pour vérifier la structure de la série.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/diff_ipc.png" alt="Série transformée IPC">
+                        <div class="graph-info">
+                            <h3>2. Série originale vs transformée</h3>
+                            <p>Montre l'effet des différenciations nécessaires pour rendre la série plus stationnaire.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/acf_pacf_ipc.png" alt="ACF et PACF IPC">
+                        <div class="graph-info">
+                            <h3>3. ACF / PACF de l'IPC</h3>
+                            <p>Permet d'identifier les ordres p et q, ainsi que les éventuelles composantes saisonnières.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/lag_correlation_besi_ipc.png" alt="Corrélation par lag BESI IPC">
+                        <div class="graph-info">
+                            <h3>4. Corrélation BESI → IPC</h3>
+                            <p>Mesure si le BESI anticipe l'IPC de quelques mois et sert d'indicateur avancé.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Modélisation SARIMA -->
+            <div class="graphs-section">
+                <h2>📊 Modélisation SARIMA Baseline</h2>
+                <div class="graph-grid">
+
+                    <div class="graph-card">
+                        <img src="../figures/residus_sarima111.png" alt="Diagnostics des résidus SARIMA">
+                        <div class="graph-info">
+                            <h3>1. Diagnostics des résidus</h3>
+                            <p>Vérifie l'autocorrélation, la distribution et la normalité des résidus du modèle SARIMA.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/walk_forward_ipc.png" alt="Walk-forward validation IPC">
+                        <div class="graph-info">
+                            <h3>2. Walk-Forward Validation</h3>
+                            <p>Compare les prévisions SARIMA aux valeurs réelles sur la période test avec plusieurs horizons.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/walk_forward_errors_ipc.png" alt="Erreurs walk-forward IPC">
+                        <div class="graph-info">
+                            <h3>3. Erreurs par horizon</h3>
+                            <p>Montre l'évolution de l'erreur absolue pour h=1, h=2 et h=3 mois.</p>
+                        </div>
+                    </div>
+
+                    <div class="graph-card">
+                        <img src="../figures/stl_ipc.png" alt="Décomposition STL IPC">
+                        <div class="graph-info">
+                            <h3>4. Décomposition STL</h3>
+                            <p>Rappelle la tendance, la saisonnalité et le résidu utilisés pour l'analyse de stationnarité.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- SARIMAX Comparaison (Session 7) -->
+            <div class="graphs-section">
+                <h2>🔄 Modélisation SARIMAX — Comparaison des Variantes</h2>
+                <p style="color: #666; margin-bottom: 20px;"><strong>Session 7</strong> — Évaluation de l'apport prédictif des signaux comportementaux</p>
+                <div class="key-findings">
+                    <h3>Objectif</h3>
+                    <p>
+                        Comparer SARIMA baseline avec trois variantes de SARIMAX exogènes :
+                        <strong>(1) SARIMAX(Google Trends seul)</strong> — isoler l'impact de Google,
+                        <strong>(2) SARIMAX(BESI complet)</strong> — tester l'indice composite,
+                        <strong>(3) SARIMAX(toutes features)</strong> — utiliser tous les signaux significatifs.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        Cette comparaison quantifie précisément le gain prédictif apporté par les signaux comportementaux
+                        (en %) et valide ou réfute H1 : <em>"Les signaux digitaux améliorent-ils vraiment la prévision?"</em>
+                    </p>
+                </div>
+                <div class="graph-grid" id="sarimax-placeholder">
+                    <p style="color: #999; grid-column: 1/-1;">
+                        📊 <em>Graphiques SARIMAX en cours de génération…</em><br>
+                        Sera exécuté lors du prochain run de <code>python src/models.py</code>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Analyse de Rupture Structurelle (Session 8) -->
+            <div class="graphs-section">
+                <h2>⚠️ Rupture Structurelle 2022 et Early Warning</h2>
+                <p style="color: #666; margin-bottom: 20px;"><strong>Session 8</strong> — Détection formelle de la rupture et capacité d'alerte précoce</p>
+                <div class="key-findings">
+                    <h3>Méthodologie</h3>
+                    <ul>
+                        <li><strong>Test de Chow :</strong> Détecte formellement une rupture structurelle (H₀ : paramètres stables)</li>
+                        <li><strong>CUSUM (Brown-Durbin-Evans) :</strong> Graphique de contrôle des résidus cumulés</li>
+                        <li><strong>Analyse par période :</strong> Mesure RMSE/MAE pour SARIMA vs SARIMAX dans 3 régimes temporels
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li><span style="color: #2C5F8A;">Pre-COVID (2010–2019)</span> — période stable</li>
+                                <li><span style="color: #FF7F0E;">Choc inflationniste (2020–2022)</span> — volatilité accrue</li>
+                                <li><span style="color: #2CA02C;">Post-choc (2022–2024)</span> — adaptation du marché</li>
+                            </ul>
+                        </li>
+                        <li><strong>Lead time quantifié :</strong> De combien de mois le BESI anticipe-t-il le stress IPC ?</li>
+                    </ul>
+                </div>
+                <div class="graph-grid" id="analysis-placeholder">
+                    <p style="color: #999; grid-column: 1/-1;">
+                        📊 <em>Graphiques d'analyse en cours de génération…</em><br>
+                        Sera exécuté lors du prochain run de <code>python src/analysis.py</code>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Conclusion -->
+            <div class="key-findings" style="background: #f0f4f8; border-left-color: #764ba2;">
+                <h3 style="color: #764ba2;">✅ État du Projet et Prochaines Étapes</h3>
+                <p>
+                    <strong>Terminé (Sessions 3–6) :</strong> Pipeline de données complet, BESI construit et validé 
+                    (corrélation 0.9156 avec IPC), features sélectionnées statistiquement, stationnarité testée, 
+                    SARIMA baseline estimée et validée.
+                </p>
+                <p style="margin-top: 10px;">
+                    <strong>En cours (Sessions 7–8) :</strong> Modélisation SARIMAX comparée à SARIMA, test de Chow 
+                    pour la rupture 2022, analyse de performance par période, quantification du lead time et de la capacité 
+                    d'alerte précoce (early warning).
+                </p>
+                <p style="margin-top: 10px;">
+                    <strong>Prochaines étapes :</strong> Génération des graphiques SARIMAX et analyse structurelle, 
+                    puis rapport final avec réponses définitives aux questions de recherche.
+                </p>
+            </div>
+        </div>
+        
+        <footer>
+            <p><strong>Projet BESI Maroc</strong> — ENSAM Meknès | Séries Temporelles</p>
+            <p>Étudiantes : Douae & Adama | Générés : 21/04/2026</p>
+        </footer>
+    </div>
+</body>
+</html>

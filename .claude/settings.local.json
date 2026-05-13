@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python src/data_pipeline.py)",
+      "Bash(python -c ' *)",
+      "Bash(java -version)",
+      "Read(//c/Users/ahadj/Downloads/**)",
+      "Bash(msiexec /i \"C:\\\\Users\\\\ahadj\\\\Downloads\\\\OpenJDK17U-jdk_x64_windows_hotspot_17.0.18_8.msi\" /quiet /norestart ADDLOCAL=ALL)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(msiexec /i \"C:\\\\Users\\\\ahadj\\\\Downloads\\\\OpenJDK17U-jdk_x64_windows_hotspot_17.0.18_8.msi\" /quiet /norestart /l*v \"C:\\\\Users\\\\ahadj\\\\Downloads\\\\jdk17_install.log\")",
+      "Bash(powershell -Command '[System.Environment]::GetEnvironmentVariable\\(\"JAVA_HOME\",\"Machine\"\\)')",
+      "Bash(powershell -Command 'Get-ChildItem \"C:\\\\Program Files\\\\\" | Where-Object { $_.Name -like \"*Temurin*\" -or $_.Name -like \"*Adoptium*\" -or $_.Name -like \"*jdk*17*\" }')",
+      "Bash(/c/Users/ahadj/anaconda3/python.exe -W ignore -c ' *)",
+      "Bash(/c/Users/ahadj/anaconda3/python.exe -m pip install tensorflow scikit-learn --quiet)",
+      "Bash(\"C:\\\\Users\\\\ahadj\\\\anaconda3\\\\python.exe\" -m jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=120 results.ipynb)",
+      "Bash(\"C:\\\\Users\\\\ahadj\\\\anaconda3\\\\Scripts\\\\jupyter.exe\" nbconvert *)",
+      "Bash(\"C:\\\\Users\\\\ahadj\\\\anaconda3\\\\python.exe\" run_v2.py)",
+      "Bash(\"C:\\\\Users\\\\ahadj\\\\anaconda3\\\\python.exe\" generate_pptx.py)"
+    ]
+  }
+}

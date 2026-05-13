@@ -1,0 +1,86 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    RAPPORT DE SYNTHÈSE — PROJET BESI MAROC                 ║
+║               Détection Précoce du Stress Économique des Ménages            ║
+║                      ENSAM Meknès — Séries Temporelles                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📊 DONNÉES GÉNÉRALES
+─────────────────────────────────────────────────────────────────────────────
+  • Période couverte        : January 2010 → December 2024
+  • Nombre d'observations   : 180 mois
+  • Rupture structurelle    : Janvier 2022 (choc inflationniste)
+
+📈 STATISTIQUES DESCRIPTIVES — BESI
+─────────────────────────────────────────────────────────────────────────────
+  • Moyenne                 : 0.4216
+  • Médiane                 : 0.3712
+  • Écart-type              : 0.2105
+  • Minimum                 : 0.0809
+  • Maximum                 : 0.8696
+  • Q1 (25%)                : 0.2579
+  • Q3 (75%)                : 0.5353
+  • Asymétrie (Skewness)    : 0.6681
+  • Aplatissement (Kurtosis): -0.6282
+
+📊 STATISTIQUES DESCRIPTIVES — IPC
+─────────────────────────────────────────────────────────────────────────────
+  • Moyenne                 : 1.0803
+  • Médiane                 : 1.0521
+  • Écart-type              : 0.0736
+  • Minimum                 : 0.9978
+  • Maximum                 : 1.2434
+  • Q1 (25%)                : 1.0341
+  • Q3 (75%)                : 1.0893
+
+🔀 ANALYSE DE LA RUPTURE STRUCTURELLE 2022
+─────────────────────────────────────────────────────────────────────────────
+  Avant 2022 (2010-2021)  |  Après 2022 (2022-2024)
+  ─────────────────────────────────────────────────
+  BESI μ    = 0.3285  |  0.7628
+  BESI σ    = 0.1197  |  0.0736
+  IPC  μ    = 1.0465  |  1.2155
+  IPC  σ    = 0.0284  |  0.0295
+
+  Δ BESI     = 0.4343 (variation)
+  Δ IPC      = 0.1690 (variation)
+
+🔗 CORRÉLATION BESI ↔ IPC
+─────────────────────────────────────────────────────────────────────────────
+  • Pearson (lag 0)        : 0.9156
+  → Le BESI et l'IPC sont fortement corrélés (test de causalité Granger recommandé)
+
+📋 COMPOSANTS DU BESI (Poids de pondération)
+─────────────────────────────────────────────────────────────────────────────
+  • Google Trends Composite (40%)
+    - Moyenne              : 0.4178
+    - Écart-type           : 0.2480
+  
+  • Reddit r/Morocco (30%)
+    - Moyenne              : 0.4963
+    - Écart-type           : 0.1953
+  
+  • YouTube (20%)
+    - Moyenne              : 0.3397
+    - Écart-type           : 0.2984
+  
+  • IPC Change (10%)
+    - Moyenne              : 0.2313
+    - Écart-type           : 0.2732
+
+🎯 CONCLUSION
+─────────────────────────────────────────────────────────────────────────────
+  ✓ Le BESI constitue un indice composite robuste combinant signaux digitaux
+  ✓ Rupture structurelle 2022 clairement identifiée (choc inflationniste)
+  ✓ Capacité d'alerte précoce à tester via modèles SARIMA/SARIMAX
+  ✓ Lead time du BESI estimé via analyse de corrélation croisée
+
+Graphiques générés : 6 fichiers PNG (outputs/figures/)
+  1. dashboard_01_ipc_yoy.png
+  2. dashboard_02_besi_stress.png
+  3. dashboard_03_signaux_normalises.png
+  4. dashboard_04_sarima_vs_sarimax.png
+  5. dashboard_05_lag_correlation.png
+  6. dashboard_06_performance_par_periode.png
+─────────────────────────────────────────────────────────────────────────────
+Date de génération : 21/04/2026 à 10:09:49

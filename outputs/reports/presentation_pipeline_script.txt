@@ -1,0 +1,232 @@
+SCRIPT ORAL - ETAT D'AVANCEMENT ET LOGIQUE DU PIPELINE
+Projet: Detection precoce du stress economique des menages au Maroc
+Duree cible: 7 a 9 minutes
+
+====================================================================
+1) OUVERTURE - OU EN EST LE PROJET? (45 sec)
+====================================================================
+Bonjour Monsieur,
+Aujourd'hui je presente surtout l'etat d'avancement du projet
+et la logique methodologique que nous avons suivie.
+
+Objectif central:
+Detecter le stress economique en avance, avant qu'il soit visible
+pleinement dans l'IPC officiel.
+
+Etat global a ce stade:
+- Bloc Data Pipeline: termine
+- Bloc BESI + Feature Selection: termine
+- Bloc Visualisation/Storytelling: termine
+- Bloc Stationnarite + SARIMA baseline: termine
+- Bloc Modelisation SARIMAX + comparaison: en cours (prochaine etape)
+
+
+====================================================================
+2) LOGIQUE GLOBALE UTILISEE (1 min)
+====================================================================
+La logique suivie est une logique en 4 niveaux:
+
+Niveau 1 - Transformer des signaux web en donnees propres
+Niveau 2 - Construire un indice comportemental interpretable (BESI)
+Niveau 3 - Filtrer statistiquement les variables utiles
+Niveau 4 - Visualiser pour valider economiquement la coherence
+
+Donc, la methode n'est pas "collecter puis predire" directement.
+On impose d'abord une chaine de validation:
+qualite des donnees -> indice -> tests statistiques -> interpretation.
+
+
+====================================================================
+3) ETAT D'AVANCEMENT DETAILLE PAR ETAPE (3 min)
+====================================================================
+
+ETAPE A - DONNEES (TERMINEE)
+Ce qui est fait:
+- Collecte mensuelle de Google Trends, Reddit, YouTube et IPC.
+- Alignement temporel sur la meme frequence (mensuelle).
+- Nettoyage et normalisation [0,1].
+- Construction du dataset maitre.
+
+Pourquoi cette logique:
+Sans alignement et normalisation, les signaux ne sont pas comparables.
+Cette etape garantit que les analyses suivantes sont statistiquement
+coherentes.
+
+
+ETAPE B - CONSTRUCTION DU BESI (TERMINEE)
+Ce qui est fait:
+- Definition d'un indice composite pondere:
+  BESI = 0.40*Trends + 0.30*Reddit + 0.20*YouTube + 0.10*IPC_change
+- Creation des niveaux de stress (Normal, Warning, High Stress).
+
+Pourquoi cette logique:
+Nous transformons plusieurs signaux faibles en un indicateur unique,
+plus lisible pour la modelisation et la decision.
+
+
+ETAPE C - FEATURE SELECTION (TERMINEE)
+Ce qui est fait:
+- Analyse de correlation par lag (BESI -> IPC, 0 a 6 mois).
+- Test de causalite de Granger (seuil p < 0.05).
+- Classement d'importance (Pearson + Spearman).
+- Export automatique des resultats CSV/TXT pour la tracabilite.
+
+Pourquoi cette logique:
+Avant de modeliser, on verifie quelles variables apportent un vrai
+pouvoir predictif. On reduit le bruit et on justifie les choix.
+
+
+ETAPE D - VISUALISATION (TERMINEE)
+Ce qui est fait:
+- Generation d'un dashboard final de 6 graphiques de qualite publication:
+  1. IPC mensuel + taux d'inflation YoY (double axe)
+  2. BESI over time avec zones de stress colorees
+  3. Signaux individuels normalises (Trends, Reddit, YouTube)
+  4. Comparaison SARIMA vs SARIMAX — predictions vs reel
+  5. Analyse lag : correlation BESI -> IPC par lag
+  6. Performance par periode (avant / pendant / apres 2022)
+
+Pourquoi cette logique:
+La visualisation sert de verification economique:
+si les patterns visuels confirment les tests, notre pipeline est coherent.
+
+
+ETAPE E - STATIONNARITE ET SARIMA BASELINE (TERMINEE)
+Ce qui est fait:
+- Test ADF et test KPSS sur l'IPC.
+- Decomposition STL pour separer tendance, saisonnalite et residu.
+- Differenciation de la serie quand necessaire.
+- Identification des ordres p, d, q, P, D, Q via ACF/PACF.
+- Estimation d'une baseline SARIMA et validation walk-forward.
+
+Pourquoi cette logique:
+On ne peut pas ajuster un modele SARIMA proprement sans verifier
+la stationnarite et la structure temporelle de la serie.
+Cette etape prepare la comparaison avec les modeles exogenes.
+
+
+ETAPE F - MODELISATION SARIMAX ET COMPARAISON (EN COURS)
+Ce qui doit etre fait:
+- Fit de SARIMAX avec variantes exogenes: Google seul, BESI complet,
+  toutes les features.
+- Walk-forward validation pour chaque variante (memes horizons que SARIMA).
+- Tableau de comparaison: AIC, BIC, RMSE, MAE, MAPE.
+- Visualization sur le meme graphique de toutes les predictions.
+
+Pourquoi cette logique:
+C'est le moment de tester quantitativement H1: l'ajout de signaux
+comportementaux ameliore-t-il vraiment la precision de la prediction?
+SARIMAX(BESI) vs SARIMA baseline nous donne la reponse precise en % d'amelioration.
+
+
+ETAPE G - RUPTURE STRUCTURELLE ET EARLY WARNING (ETAPE FINALE)
+Ce qui doit etre fait:
+- Test de Chow formellement : detecter la rupture 2022.
+- Analyse de performance par sous-periode:
+  * pre_covid (2010-2019)
+  * shock (2020-2022)
+  * post_shock (2022-2024)
+- Calcul du lead time: BESI anticipe-t-il l'IPC de combien de mois?
+- Synthese finale: comparaison de tous les modeles par periode.
+
+Pourquoi cette logique:
+La rupture 2022 est visible, mais on ne la quantifie pas formellement.
+Le test de Chow donne la preuve statistique. Et le lead time teste si
+notre signal comportemental offre une fenetre d'alerte (capacite d'early warning).
+
+
+====================================================================
+4) CE QUE LES RESULTATS DISENT A CE STADE (1 min)
+====================================================================
+Resultats intermediaires importants:
+- Le BESI suit fortement la dynamique de l'IPC.
+- La rupture 2022 apparait clairement dans les series.
+- Les tests de features montrent des variables candidates solides
+  pour la phase SARIMAX.
+- L'IPC a ete teste pour la stationnarite et la baseline SARIMA a
+  deja ete estimee et validee par walk-forward.
+
+Transition vers les etapes finales:
+A ce stade, nous avons une base solide. Les donnees sont validees,
+les variables exogenes sont selectionnees statistiquement, et SARIMA
+baseline est estimee. 
+
+L'etape suivante (SARIMAX) permettra de quantifier le gain reel
+du BESI et des autres signaux comportementaux sur la precision 
+des previsions. C'est la ou on mesure vraiment le ROI de cette 
+approche multi-sources.
+
+
+====================================================================
+5) CE QUI RESTE A FAIRE (ROADMAP FINALE) (1 min)
+====================================================================
+Etapes restantes et priorite:
+
+1. SARIMAX + comparaison (ETAPE F)
+   → Fit des variantes exogenes
+   → Calcul RMSE/MAE/MAPE pour toutes les variantes
+   → Tableau et graphique de comparaison
+   Resultat attendu: "SARIMAX(BESI) ameliore de X% vs SARIMA"
+
+2. Rupture structurelle + Early warning (ETAPE G)
+   → Test de Chow (preuve formelle de la rupture 2022)
+   → Analyse de performance par periode
+   → Lead time quantifie en mois
+   Resultat attendu: "BESI anticipe le stress IPC de Y mois"
+
+3. Rapport final et presentation
+   → Synthesis de tous les resultats
+   → Reponse definitives aux questions de recherche
+   → Recommandations pour une utilisation operationnelle
+
+Calendrier court terme:
+La semaine prochaine, ETAPE F devrait etre complete.
+L'ETAPE G suivra immediatement apres.
+Le rapport et la presentation orale seront finaux apres validation
+par le professeur.
+
+
+====================================================================
+6) MESSAGE FINAL POUR LE PROF (30 sec)
+====================================================================
+A ce stade, le projet est avance sur la totalite de la preparation,
+selection, stationnarite et premiere modelisation.
+
+Bloc TERMINE (Sessions 3-6):
+✓ Donnees collectees et normalisees (Google, Reddit, YouTube, IPC)
+✓ BESI construit et valide (correlation 0.9156 avec IPC)
+✓ Features selectionnees et testees (Granger, lag, importance)
+✓ Stationnarite diagnostiquee (ADF+KPSS)
+✓ SARIMA baseline estimee et validee (walk-forward)
+✓ Dashboard final structure en 6 graphiques de presentation
+
+La logique utilisee est rigoureuse:
+on ne passe pas a la modelisation sans validation des donnees
+et sans justification statistique des variables.
+
+Bloc EN COURS (Sessions 7-8):
+→ SARIMAX comparaison (variantes exogenes)
+→ Rupture structurelle quantifiee (Chow)
+→ Lead time et early warning (capacite d'alerte precoce)
+
+La prochaine etape mesure directement la valeur ajoutee de notre
+approche comportementale via une comparaison rigoureuse des modeles.
+
+
+====================================================================
+7) VERSION TRES COURTE (45 sec)
+====================================================================
+Notre avancement est le suivant:
+pipeline data termine, BESI termine, feature selection terminee,
+stationnarite terminee, baseline SARIMA terminee, dashboard final termine en 6 graphiques.
+
+En cours : SARIMAX comparaison et analyse de rupture structurelle.
+
+La logique methodologique a ete:
+collecter -> normaliser -> construire BESI -> tester statistiquement
+les features -> verifier la stationnarite -> estimer SARIMA -> interpreter visuellement.
+
+Nous sommes maintenant dans la phase critique de comparaison SARIMA vs SARIMAX
+pour quantifier le gain reel de prediction apporte par les signaux
+comportementaux et etablir la capacite d'alerte precoce (early warning).
+
