@@ -346,7 +346,7 @@ def build_lstm(
         path = FIG_DIR / "lstm_predictions.png"
         fig.savefig(path, dpi=150, bbox_inches="tight")
         print(f"  Figure sauvegardee : {path}")
-        plt.show()
+        plt.close(fig)
 
     return {
         "rmse":       rmse,
@@ -560,7 +560,7 @@ def compare_all_models(
         p1 = FIG_DIR / "compare_all_models.png"
         fig1.savefig(p1, dpi=150, bbox_inches="tight")
         print(f"  Figure sauvegardee : {p1}")
-        plt.show()
+        plt.close(fig1)
 
         # Figure 2 : predictions superposees sur le test ───────────────────────
         preds_available = [
@@ -602,7 +602,7 @@ def compare_all_models(
             p2 = FIG_DIR / "compare_all_predictions.png"
             fig2.savefig(p2, dpi=150, bbox_inches="tight")
             print(f"  Figure sauvegardee : {p2}")
-            plt.show()
+            plt.close(fig2)
 
         # Figure 3 : radar chart multi-criteres ───────────────────────────────
         categories = [
@@ -665,7 +665,7 @@ def compare_all_models(
         p3 = FIG_DIR / "compare_all_radar.png"
         fig3.savefig(p3, dpi=150, bbox_inches="tight")
         print(f"  Figure sauvegardee : {p3}")
-        plt.show()
+        plt.close(fig3)
 
     return df
 
@@ -892,7 +892,7 @@ def compare_window_sizes(
         path = FIG_DIR / "lstm_window_comparison.png"
         fig.savefig(path, dpi=150, bbox_inches="tight")
         print(f"\n  Figure sauvegardee : {path}")
-        plt.show()
+        plt.close(fig)
 
     # ── CSV sauvegarde ────────────────────────────────────────────────────────
     csv_path = REP_DIR / "lstm_window_comparison.csv"
@@ -900,6 +900,706 @@ def compare_window_sizes(
     print(f"  CSV sauvegarde : {csv_path}")
 
     return df_all
+
+
+# =============================================================================
+# 4. GRU
+# =============================================================================
+
+def build_gru(
+    series:     pd.Series,
+    exog:       "pd.DataFrame | None" = None,
+    look_back:  int   = 12,
+    train_end:  str   = "2021-12-01",
+    epochs:     int   = 50,
+    batch_size: int   = 16,
+    gru_units:  tuple = (64, 32),
+    dropout:    float = 0.10,
+    save_fig:   bool  = True,
+) -> dict:
+    """
+    Reseau GRU (Gated Recurrent Unit) — architecture identique au LSTM
+    mais avec des cellules GRU. Plus rapide a entrainer et souvent plus
+    efficace sur des series courtes.
+
+    Architecture : Input -> GRU(64, return_seq) -> Dropout -> GRU(32) -> Dense(1)
+    Meme split train/test que SARIMA pour une comparaison equitable.
+
+    Retourne le meme format de dict que build_lstm().
+    """
+    try:
+        import tensorflow as tf
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import GRU, Dense, Dropout, Input
+        from tensorflow.keras.callbacks import EarlyStopping
+        from sklearn.preprocessing import MinMaxScaler
+        tf.random.set_seed(42)
+    except ImportError as exc:
+        raise ImportError(f"TensorFlow requis pour build_gru(). {exc}") from exc
+
+    # ── Preparation identique a build_lstm ────────────────────────────────────
+    s = series.dropna().copy()
+    if exog is not None:
+        exog_al  = exog.reindex(s.index).ffill().bfill()
+        common   = s.index.intersection(exog_al.dropna().index)
+        s        = s.loc[common]
+        exog_al  = exog_al.loc[common]
+        data_arr = np.column_stack([s.values, exog_al.values])
+    else:
+        exog_al  = None
+        data_arr = s.values.reshape(-1, 1)
+
+    n_features = data_arr.shape[1]
+    scaler     = MinMaxScaler(feature_range=(0, 1))
+    data_norm  = scaler.fit_transform(data_arr)
+
+    X_all, y_all, dates_all = [], [], []
+    for i in range(len(data_norm) - look_back):
+        X_all.append(data_norm[i : i + look_back])
+        y_all.append(data_norm[i + look_back, 0])
+        dates_all.append(s.index[i + look_back])
+
+    X_all     = np.array(X_all)
+    y_all     = np.array(y_all)
+    dates_all = pd.DatetimeIndex(dates_all)
+
+    te         = pd.Timestamp(train_end)
+    train_mask = dates_all <= te
+    test_mask  = dates_all >  te
+
+    X_train, y_train = X_all[train_mask], y_all[train_mask]
+    X_test,  y_test  = X_all[test_mask],  y_all[test_mask]
+    dates_test       = dates_all[test_mask]
+
+    sep = "=" * 62
+    print(f"\n{sep}")
+    print("  GRU -- PREVISION IPC MAROC")
+    print(f"  Features  : {n_features}  |  Look-back : {look_back} mois")
+    print(f"  Train     : {dates_all[train_mask][0].date()} -> {te.date()}")
+    print(f"  Test      : {dates_test[0].date()} -> {dates_test[-1].date()}")
+    print(f"  Archi     : Input({look_back},{n_features}) -> GRU({gru_units[0]}) "
+          f"-> Dropout({dropout}) -> GRU({gru_units[1]}) -> Dense(1)")
+    print(sep)
+
+    # ── Construction du modele ────────────────────────────────────────────────
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = Sequential(
+            [
+                Input(shape=(look_back, n_features)),
+                GRU(gru_units[0], return_sequences=True),
+                Dropout(dropout),
+                GRU(gru_units[1]),
+                Dense(1),
+            ],
+            name="IPC_GRU",
+        )
+        model.compile(optimizer="adam", loss="mse")
+
+    n_params   = model.count_params()
+    early_stop = EarlyStopping(monitor="val_loss", patience=8,
+                               restore_best_weights=True, verbose=0)
+    t0 = time.time()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        history = model.fit(
+            X_train, y_train,
+            epochs=epochs, batch_size=batch_size,
+            validation_split=0.15, callbacks=[early_stop],
+            verbose=0, shuffle=False,
+        )
+    train_time    = time.time() - t0
+    actual_epochs = len(history.history["loss"])
+    print(f"  Entrainement : {actual_epochs} epochs  ({train_time:.1f}s)")
+
+    # ── Predictions ───────────────────────────────────────────────────────────
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        y_pred_norm = model.predict(X_test, verbose=0).ravel()
+
+    def _inv(norm_vals):
+        dummy = np.zeros((len(norm_vals), n_features))
+        dummy[:, 0] = norm_vals
+        return scaler.inverse_transform(dummy)[:, 0]
+
+    y_pred_inv = _inv(y_pred_norm)
+    y_true_inv = _inv(y_test)
+
+    rmse = _rmse(y_true_inv, y_pred_inv)
+    mae  = _mae(y_true_inv,  y_pred_inv)
+    mape = _mape(y_true_inv, y_pred_inv)
+
+    print(f"  RMSE={rmse:.5f}  MAE={mae:.5f}  MAPE={mape:.2f}%")
+
+    # ── Sauvegarde modele ─────────────────────────────────────────────────────
+    model_path = MOD_DIR / "gru_ipc.keras"
+    try:
+        model.save(str(model_path))
+    except Exception:
+        pass
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    if save_fig:
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(dates_test, y_true_inv,
+                color=_COL_REAL, lw=2.0, label="IPC reel")
+        ax.plot(dates_test, y_pred_inv,
+                color="#17BECF", lw=1.8, ls="--",
+                label=f"GRU pred  RMSE={rmse:.5f}")
+        ax.axvline(te, color="red", lw=1.0, ls="--", alpha=0.5, label="Coupure")
+        ax.set_title(f"GRU IPC Maroc — RMSE={rmse:.5f}  epochs={actual_epochs}",
+                     fontsize=9, fontweight="bold")
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        path = FIG_DIR / "gru_predictions.png"
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"  Figure sauvegardee : {path}")
+        plt.close(fig)
+
+    return {
+        "rmse": rmse, "mae": mae, "mape": mape,
+        "y_true": y_true_inv, "y_pred": y_pred_inv,
+        "test_dates": dates_test,
+        "train_time": round(train_time, 1),
+        "n_params": n_params, "epochs": actual_epochs,
+        "history": history.history, "model": model,
+        "look_back": look_back, "n_features": n_features,
+    }
+
+
+# =============================================================================
+# 5. BIDIRECTIONAL LSTM
+# =============================================================================
+
+def build_bilstm(
+    series:     pd.Series,
+    exog:       "pd.DataFrame | None" = None,
+    look_back:  int   = 12,
+    train_end:  str   = "2021-12-01",
+    epochs:     int   = 50,
+    batch_size: int   = 16,
+    lstm_units: tuple = (64, 32),
+    dropout:    float = 0.10,
+    save_fig:   bool  = True,
+) -> dict:
+    """
+    BiLSTM (Bidirectionnel) — lit la sequence dans les deux sens.
+    Particulierement utile quand les dependances passees ET futures
+    d'une fenetre ont de l'importance (ex. phenomenes saisonniers).
+
+    Architecture : Input -> Bidirectionnel(LSTM(64)) -> Dropout
+                -> LSTM(32) -> Dense(1)
+
+    Retourne le meme format de dict que build_lstm().
+    """
+    try:
+        import tensorflow as tf
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import LSTM, Bidirectional, Dense, Dropout, Input
+        from tensorflow.keras.callbacks import EarlyStopping
+        from sklearn.preprocessing import MinMaxScaler
+        tf.random.set_seed(42)
+    except ImportError as exc:
+        raise ImportError(f"TensorFlow requis pour build_bilstm(). {exc}") from exc
+
+    # ── Preparation ───────────────────────────────────────────────────────────
+    s = series.dropna().copy()
+    if exog is not None:
+        exog_al  = exog.reindex(s.index).ffill().bfill()
+        common   = s.index.intersection(exog_al.dropna().index)
+        s        = s.loc[common]
+        exog_al  = exog_al.loc[common]
+        data_arr = np.column_stack([s.values, exog_al.values])
+    else:
+        exog_al  = None
+        data_arr = s.values.reshape(-1, 1)
+
+    n_features = data_arr.shape[1]
+    scaler     = MinMaxScaler(feature_range=(0, 1))
+    data_norm  = scaler.fit_transform(data_arr)
+
+    X_all, y_all, dates_all = [], [], []
+    for i in range(len(data_norm) - look_back):
+        X_all.append(data_norm[i : i + look_back])
+        y_all.append(data_norm[i + look_back, 0])
+        dates_all.append(s.index[i + look_back])
+
+    X_all     = np.array(X_all)
+    y_all     = np.array(y_all)
+    dates_all = pd.DatetimeIndex(dates_all)
+
+    te         = pd.Timestamp(train_end)
+    train_mask = dates_all <= te
+    test_mask  = dates_all >  te
+
+    X_train, y_train = X_all[train_mask], y_all[train_mask]
+    X_test,  y_test  = X_all[test_mask],  y_all[test_mask]
+    dates_test       = dates_all[test_mask]
+
+    sep = "=" * 62
+    print(f"\n{sep}")
+    print("  BiLSTM -- PREVISION IPC MAROC")
+    print(f"  Features  : {n_features}  |  Look-back : {look_back} mois")
+    print(f"  Train     : {dates_all[train_mask][0].date()} -> {te.date()}")
+    print(f"  Test      : {dates_test[0].date()} -> {dates_test[-1].date()}")
+    print(f"  Archi     : Input -> Bidirectionnel(LSTM({lstm_units[0]})) "
+          f"-> Dropout -> LSTM({lstm_units[1]}) -> Dense(1)")
+    print(sep)
+
+    # ── Modele ────────────────────────────────────────────────────────────────
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = Sequential(
+            [
+                Input(shape=(look_back, n_features)),
+                Bidirectional(LSTM(lstm_units[0], return_sequences=True)),
+                Dropout(dropout),
+                LSTM(lstm_units[1]),
+                Dense(1),
+            ],
+            name="IPC_BiLSTM",
+        )
+        model.compile(optimizer="adam", loss="mse")
+
+    n_params   = model.count_params()
+    early_stop = EarlyStopping(monitor="val_loss", patience=8,
+                               restore_best_weights=True, verbose=0)
+    t0 = time.time()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        history = model.fit(
+            X_train, y_train,
+            epochs=epochs, batch_size=batch_size,
+            validation_split=0.15, callbacks=[early_stop],
+            verbose=0, shuffle=False,
+        )
+    train_time    = time.time() - t0
+    actual_epochs = len(history.history["loss"])
+    print(f"  Entrainement : {actual_epochs} epochs  ({train_time:.1f}s)")
+
+    # ── Predictions ───────────────────────────────────────────────────────────
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        y_pred_norm = model.predict(X_test, verbose=0).ravel()
+
+    def _inv(norm_vals):
+        dummy = np.zeros((len(norm_vals), n_features))
+        dummy[:, 0] = norm_vals
+        return scaler.inverse_transform(dummy)[:, 0]
+
+    y_pred_inv = _inv(y_pred_norm)
+    y_true_inv = _inv(y_test)
+
+    rmse = _rmse(y_true_inv, y_pred_inv)
+    mae  = _mae(y_true_inv,  y_pred_inv)
+    mape = _mape(y_true_inv, y_pred_inv)
+
+    print(f"  RMSE={rmse:.5f}  MAE={mae:.5f}  MAPE={mape:.2f}%")
+
+    model_path = MOD_DIR / "bilstm_ipc.keras"
+    try:
+        model.save(str(model_path))
+    except Exception:
+        pass
+
+    if save_fig:
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(dates_test, y_true_inv,
+                color=_COL_REAL, lw=2.0, label="IPC reel")
+        ax.plot(dates_test, y_pred_inv,
+                color="#9467BD", lw=1.8, ls="--",
+                label=f"BiLSTM pred  RMSE={rmse:.5f}")
+        ax.axvline(te, color="red", lw=1.0, ls="--", alpha=0.5, label="Coupure")
+        ax.set_title(f"BiLSTM IPC Maroc — RMSE={rmse:.5f}  epochs={actual_epochs}",
+                     fontsize=9, fontweight="bold")
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        path = FIG_DIR / "bilstm_predictions.png"
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"  Figure sauvegardee : {path}")
+        plt.close(fig)
+
+    return {
+        "rmse": rmse, "mae": mae, "mape": mape,
+        "y_true": y_true_inv, "y_pred": y_pred_inv,
+        "test_dates": dates_test,
+        "train_time": round(train_time, 1),
+        "n_params": n_params, "epochs": actual_epochs,
+        "history": history.history, "model": model,
+        "look_back": look_back, "n_features": n_features,
+    }
+
+
+# =============================================================================
+# 6. XGBOOST TIME-SERIES
+# =============================================================================
+
+def build_xgboost_ts(
+    series:    pd.Series,
+    exog:      "pd.DataFrame | None" = None,
+    look_back: int  = 12,
+    train_end: str  = "2021-12-01",
+    n_estimators: int   = 300,
+    max_depth:    int   = 4,
+    learning_rate: float = 0.05,
+    subsample:    float = 0.8,
+    save_fig:  bool = True,
+) -> dict:
+    """
+    XGBoost applique a la prevision de series temporelles.
+
+    Strategie : features = lags 1..look_back de l'IPC + exog alignees.
+    Pas de sequences 3D — XGBoost est un modele tabular.
+    Permet une comparaison interpretabilite/performance vs deep learning.
+
+    Necessite : pip install xgboost scikit-learn
+
+    Retourne le meme format de dict que build_lstm().
+    """
+    try:
+        import xgboost as xgb
+        from sklearn.preprocessing import MinMaxScaler
+    except ImportError as exc:
+        raise ImportError(
+            "xgboost et scikit-learn sont requis pour build_xgboost_ts().\n"
+            f"Installation : pip install xgboost scikit-learn\n{exc}"
+        ) from exc
+
+    s = series.dropna().copy()
+
+    # ── Construction des features lag ─────────────────────────────────────────
+    # X[t] = [IPC_{t-1}, ..., IPC_{t-look_back}] + exog_{t}
+    feat_dict: dict = {}
+    for lag in range(1, look_back + 1):
+        feat_dict[f"ipc_lag{lag}"] = s.shift(lag)
+
+    if exog is not None:
+        exog_al = exog.reindex(s.index).ffill().bfill()
+        for col in exog_al.columns:
+            feat_dict[col] = exog_al[col]
+
+    feat_df = pd.DataFrame(feat_dict, index=s.index)
+    feat_df["target"] = s.values
+
+    feat_df = feat_df.dropna()
+    X = feat_df.drop(columns=["target"]).values
+    y = feat_df["target"].values
+    dates = feat_df.index
+
+    # ── Split ────────────────────────────────────────────────────────────────
+    te         = pd.Timestamp(train_end)
+    train_mask = dates <= te
+    test_mask  = dates >  te
+
+    X_train, y_train = X[train_mask], y[train_mask]
+    X_test,  y_test  = X[test_mask],  y[test_mask]
+    dates_test       = dates[test_mask]
+
+    sep = "=" * 62
+    print(f"\n{sep}")
+    print("  XGBoost TS -- PREVISION IPC MAROC")
+    print(f"  Features   : {X.shape[1]} ({look_back} lags IPC"
+          f"{' + ' + str(exog.shape[1]) + ' exog' if exog is not None else ''})")
+    print(f"  Train      : {dates[train_mask][0].date()} -> {te.date()}")
+    print(f"  Test       : {dates_test[0].date()} -> {dates_test[-1].date()}")
+    print(f"  Hyperparams: n_estimators={n_estimators}  max_depth={max_depth}  "
+          f"lr={learning_rate}  subsample={subsample}")
+    print(sep)
+
+    t0 = time.time()
+    regressor = xgb.XGBRegressor(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        subsample=subsample,
+        colsample_bytree=0.8,
+        random_state=42,
+        n_jobs=-1,
+        verbosity=0,
+    )
+    regressor.fit(X_train, y_train,
+                  eval_set=[(X_test, y_test)],
+                  verbose=False)
+    train_time = time.time() - t0
+
+    y_pred = regressor.predict(X_test)
+
+    rmse = _rmse(y_test, y_pred)
+    mae  = _mae(y_test,  y_pred)
+    mape = _mape(y_test, y_pred)
+
+    print(f"  Entrainement : {train_time:.1f}s")
+    print(f"  RMSE={rmse:.5f}  MAE={mae:.5f}  MAPE={mape:.2f}%")
+    print(sep)
+
+    # Importance des features
+    fi = dict(zip(feat_df.drop(columns=["target"]).columns,
+                  regressor.feature_importances_))
+    fi_sorted = sorted(fi.items(), key=lambda x: x[1], reverse=True)
+    print("  Top 5 features XGBoost :")
+    for feat, imp in fi_sorted[:5]:
+        print(f"    {feat:<20} : {imp:.4f}")
+
+    if save_fig:
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        fig.suptitle(f"XGBoost TS IPC Maroc — RMSE={rmse:.5f}",
+                     fontsize=10, fontweight="bold")
+
+        # Previsions
+        ax = axes[0]
+        ax.plot(dates_test, y_test, color=_COL_REAL, lw=2.0, label="IPC reel")
+        ax.plot(dates_test, y_pred, color="#FF7F0E", lw=1.8, ls="--",
+                label=f"XGBoost pred")
+        ax.axvline(te, color="red", lw=1.0, ls="--", alpha=0.5)
+        ax.set_title("Previsions vs valeurs reelles", fontsize=9)
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+
+        # Importance
+        ax2 = axes[1]
+        top_feats = [f for f, _ in fi_sorted[:10]]
+        top_imps  = [fi[f] for f in top_feats]
+        ax2.barh(top_feats[::-1], top_imps[::-1],
+                 color="#FF7F0E", alpha=0.8)
+        ax2.set_title("Importance des features (top 10)", fontsize=9)
+        ax2.set_xlabel("Importance")
+        ax2.grid(True, alpha=0.3, axis="x")
+
+        plt.tight_layout()
+        path = FIG_DIR / "xgboost_ts_predictions.png"
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"  Figure sauvegardee : {path}")
+        plt.close(fig)
+
+    return {
+        "rmse": rmse, "mae": mae, "mape": mape,
+        "y_true": y_test, "y_pred": y_pred,
+        "test_dates": dates_test,
+        "train_time": round(train_time, 1),
+        "n_params": int(regressor.get_params()["n_estimators"]),
+        "feature_importance": fi_sorted,
+        "model": regressor,
+        "look_back": look_back,
+    }
+
+
+# =============================================================================
+# 7. COMPARAISON COMPLETE DEEP LEARNING
+# =============================================================================
+
+def compare_all_dl_models(
+    series:    pd.Series,
+    exog:      "pd.DataFrame | None" = None,
+    look_back: int  = 12,
+    train_end: str  = "2021-12-01",
+    epochs:    int  = 50,
+    save_fig:  bool = True,
+) -> pd.DataFrame:
+    """
+    Lance et compare tous les modeles DL du projet :
+    LSTM, GRU, BiLSTM, XGBoost TS (avec et sans exog si fourni).
+
+    Parametres
+    ----------
+    series    : serie IPC mensuelle
+    exog      : variables exogenes (BESI ou sous-indices Trends) — optionnel
+    look_back : fenetre d'entree en mois
+    train_end : coupure train/test
+    epochs    : epochs max pour les reseaux neuronaux
+    save_fig  : sauvegarder les figures de comparaison
+
+    Retourne
+    --------
+    pd.DataFrame trie par RMSE croissant
+    Exports : outputs/reports/dl_comparison.csv
+              outputs/figures/dl_comparison_rmse.png
+    """
+    results: dict = {}
+
+    # ── 1. LSTM ───────────────────────────────────────────────────────────────
+    print("\n" + "="*65)
+    print("  [1/4]  LSTM")
+    print("="*65)
+    try:
+        results["LSTM"] = build_lstm(
+            series, exog=None, look_back=look_back,
+            train_end=train_end, epochs=epochs, save_fig=save_fig,
+        )
+    except Exception as e:
+        print(f"  [ERREUR] LSTM : {e}")
+
+    if exog is not None:
+        try:
+            results["LSTM+exog"] = build_lstm(
+                series, exog=exog, look_back=look_back,
+                train_end=train_end, epochs=epochs, save_fig=False,
+            )
+        except Exception as e:
+            print(f"  [ERREUR] LSTM+exog : {e}")
+
+    # ── 2. GRU ────────────────────────────────────────────────────────────────
+    print("\n" + "="*65)
+    print("  [2/4]  GRU")
+    print("="*65)
+    try:
+        results["GRU"] = build_gru(
+            series, exog=None, look_back=look_back,
+            train_end=train_end, epochs=epochs, save_fig=save_fig,
+        )
+    except Exception as e:
+        print(f"  [ERREUR] GRU : {e}")
+
+    if exog is not None:
+        try:
+            results["GRU+exog"] = build_gru(
+                series, exog=exog, look_back=look_back,
+                train_end=train_end, epochs=epochs, save_fig=False,
+            )
+        except Exception as e:
+            print(f"  [ERREUR] GRU+exog : {e}")
+
+    # ── 3. BiLSTM ─────────────────────────────────────────────────────────────
+    print("\n" + "="*65)
+    print("  [3/4]  BiLSTM")
+    print("="*65)
+    try:
+        results["BiLSTM"] = build_bilstm(
+            series, exog=None, look_back=look_back,
+            train_end=train_end, epochs=epochs, save_fig=save_fig,
+        )
+    except Exception as e:
+        print(f"  [ERREUR] BiLSTM : {e}")
+
+    if exog is not None:
+        try:
+            results["BiLSTM+exog"] = build_bilstm(
+                series, exog=exog, look_back=look_back,
+                train_end=train_end, epochs=epochs, save_fig=False,
+            )
+        except Exception as e:
+            print(f"  [ERREUR] BiLSTM+exog : {e}")
+
+    # ── 4. XGBoost ────────────────────────────────────────────────────────────
+    print("\n" + "="*65)
+    print("  [4/4]  XGBoost TS")
+    print("="*65)
+    try:
+        results["XGBoost"] = build_xgboost_ts(
+            series, exog=None, look_back=look_back,
+            train_end=train_end, save_fig=save_fig,
+        )
+    except Exception as e:
+        print(f"  [ERREUR] XGBoost : {e}")
+
+    if exog is not None:
+        try:
+            results["XGBoost+exog"] = build_xgboost_ts(
+                series, exog=exog, look_back=look_back,
+                train_end=train_end, save_fig=False,
+            )
+        except Exception as e:
+            print(f"  [ERREUR] XGBoost+exog : {e}")
+
+    # ── Tableau recapitulatif ─────────────────────────────────────────────────
+    rows = []
+    for name, res in results.items():
+        rows.append({
+            "Modele":      name,
+            "RMSE":        round(res.get("rmse",       np.nan), 5),
+            "MAE":         round(res.get("mae",        np.nan), 5),
+            "MAPE%":       round(res.get("mape",       np.nan), 2),
+            "Temps_s":     res.get("train_time", np.nan),
+            "N_params":    res.get("n_params",   np.nan),
+            "Look_back":   res.get("look_back",  look_back),
+        })
+
+    df_dl = pd.DataFrame(rows).sort_values("RMSE", na_position="last").reset_index(drop=True)
+
+    sep = "=" * 75
+    print(f"\n{sep}")
+    print("  COMPARAISON DL COMPLETE — LSTM / GRU / BiLSTM / XGBoost")
+    print(sep)
+    print(df_dl.to_string(index=False))
+    print(sep)
+
+    best = df_dl.iloc[0]
+    print(f"\n  Meilleur modele DL : {best['Modele']}  (RMSE={best['RMSE']:.5f})")
+
+    # ── Sauvegarde CSV ────────────────────────────────────────────────────────
+    csv_path = REP_DIR / "dl_comparison.csv"
+    df_dl.to_csv(csv_path, index=False)
+    print(f"  CSV sauvegarde : {csv_path}")
+
+    # ── Figure barres RMSE ────────────────────────────────────────────────────
+    if save_fig and len(df_dl) > 0:
+        _col_map = {
+            "LSTM":         _COL_LSTM,
+            "LSTM+exog":    "#7B4EA8",
+            "GRU":          "#17BECF",
+            "GRU+exog":     "#0E8F99",
+            "BiLSTM":       "#9467BD",
+            "BiLSTM+exog":  "#6E4E9B",
+            "XGBoost":      "#FF7F0E",
+            "XGBoost+exog": "#D45F00",
+        }
+        colors = [_col_map.get(n, "#888888") for n in df_dl["Modele"]]
+
+        fig, axes = plt.subplots(1, 3, figsize=(15, 6))
+        fig.suptitle(
+            f"Comparaison modeles DL — look_back={look_back} mois  "
+            f"train_end={train_end}",
+            fontsize=10, fontweight="bold",
+        )
+        for ax, metric in zip(axes, ["RMSE", "MAE", "MAPE%"]):
+            vals = df_dl[metric].values
+            bars = ax.bar(df_dl["Modele"], vals, color=colors, alpha=0.85)
+            for bar, v in zip(bars, vals):
+                if not np.isnan(v):
+                    ax.text(bar.get_x() + bar.get_width() / 2,
+                            v * 1.015, f"{v:.5f}" if metric != "MAPE%" else f"{v:.2f}",
+                            ha="center", fontsize=6, fontweight="bold")
+            ax.set_title(metric, fontsize=10)
+            ax.set_xticklabels(df_dl["Modele"], rotation=40, ha="right", fontsize=7)
+            ax.grid(True, alpha=0.3, axis="y")
+
+        plt.tight_layout()
+        path = FIG_DIR / "dl_comparison_rmse.png"
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"  Figure sauvegardee : {path}")
+        plt.close(fig)
+
+        # Figure predictions superposees
+        preds_ok = [(n, r) for n, r in results.items()
+                    if "y_pred" in r and "test_dates" in r]
+        if preds_ok:
+            fig2, ax2 = plt.subplots(figsize=(14, 6))
+            fig2.suptitle("Previsions DL superposees — periode test",
+                          fontsize=10, fontweight="bold")
+            y_true = preds_ok[0][1]["y_true"]
+            dates_t = preds_ok[0][1]["test_dates"]
+            ax2.plot(dates_t, y_true, color=_COL_REAL, lw=2.5,
+                     zorder=5, label="IPC reel")
+            ls_cycle = ["--", "-.", ":", (0, (3,1,1,1)), (0,(5,2)), "--", "-."]
+            for i, (name, res) in enumerate(preds_ok):
+                c   = _col_map.get(name, "#888888")
+                ls  = ls_cycle[i % len(ls_cycle)]
+                r   = res.get("rmse", np.nan)
+                ax2.plot(res["test_dates"], res["y_pred"],
+                         color=c, lw=1.4, ls=ls, alpha=0.85,
+                         label=f"{name}  RMSE={r:.5f}")
+            ax2.legend(fontsize=7.5, ncol=2)
+            ax2.set_xlabel("Date", fontsize=9)
+            ax2.set_ylabel("IPC", fontsize=9)
+            ax2.grid(True, alpha=0.3)
+            plt.tight_layout()
+            path2 = FIG_DIR / "dl_predictions_all.png"
+            fig2.savefig(path2, dpi=150, bbox_inches="tight")
+            print(f"  Figure sauvegardee : {path2}")
+            plt.close(fig2)
+
+    return df_dl
 
 
 # ── Point d'entree ────────────────────────────────────────────────────────────

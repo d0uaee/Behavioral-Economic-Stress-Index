@@ -1,201 +1,188 @@
 """
-run_v2.py — Script de lancement de la comparaison v2 (sans Reddit/YouTube simulés)
+run_v2.py — Pipeline complet BESI Maroc (v2 — réponse critiques prof)
+
+Améliorations v2.1 :
+  - Sous-indices Trends thématiques : prix / inflation / stress ménages
+  - BESI_enrichi soumis à validation walk-forward formelle
+  - Deep Learning étendu : LSTM / GRU / BiLSTM / XGBoost TS
+  - Prophet maintenu comme benchmark alternatif
 
 Usage :
     python run_v2.py
 
-Ce script :
-1. Tente de télécharger l'IPC réel depuis la Banque Mondiale (FP.CPI.TOTL, MA)
-2. Calcule BESI_trends = 0.70*Trends + 0.30*|IPC_change|
-3. Lance compare_models_v2() : Naif / SARIMA / SARIMAX_T / SARIMAX_BT
-4. Sauvegarde :
-   - outputs/reports/model_comparison_v2.csv
-   - outputs/reports/period_performance_v2.csv
-   - outputs/reports/data_sources.txt
-   - outputs/figures/compare_all_predictions_v2.png
-   - outputs/figures/period_performance_v2.png
-   - outputs/figures/gain_vs_sarima_v2.png
+Exports produits :
+  outputs/reports/model_comparison_v2.csv        ← SARIMA/SARIMAX (8 modèles)
+  outputs/reports/period_performance_v2.csv
+  outputs/reports/dl_comparison.csv              ← LSTM/GRU/BiLSTM/XGBoost
+  outputs/reports/prophet_results.csv
+  outputs/figures/compare_all_predictions_v2.png
+  outputs/figures/dl_comparison_rmse.png
+  outputs/figures/dl_predictions_all.png
 """
 
 import warnings
 import sys
 from pathlib import Path
 
-# Ajouter le dossier src au path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")   # mode non-interactif pour sauvegarde propre
+matplotlib.use("Agg")   # mode non-interactif — pas de fenêtre popup
 
 np.random.seed(42)
 warnings.filterwarnings("ignore")
 
 from models import compare_models_v2
-from deep_learning import build_lstm, compare_window_sizes
+from deep_learning import compare_all_dl_models
+
 
 if __name__ == "__main__":
-    print("=" * 65)
-    print("  BESI Maroc — Comparaison modèles v2")
-    print("  Correction : Google Trends uniquement (sans Reddit/YouTube)")
-    print("=" * 65)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # PARTIE 1 — SARIMA / SARIMAX (sous-indices Trends + BESI_enrichi)
+    # ════════════════════════════════════════════════════════════════════════
+    print("=" * 68)
+    print("  BESI Maroc v2.1 — Comparaison modèles")
+    print("  Sous-indices Trends thématiques + BESI_enrichi + DL étendu")
+    print("=" * 68)
 
     df_cmp, df_period = compare_models_v2(
-        series       = None,     # chargé automatiquement depuis data/processed/
-        master_df    = None,
-        train_start  = "2015-01-01",
-        train_end    = "2021-12-01",
-        test_end     = "2024-12-01",
-        horizons     = [1],
+        series        = None,          # chargé automatiquement
+        master_df     = None,
+        train_start   = "2015-01-01",
+        train_end     = "2021-12-01",
+        test_end      = "2024-12-01",
+        horizons      = [1],
         try_worldbank = True,
-        save_fig     = True,
+        save_fig      = True,
     )
 
-    # ── Charger les données master pour LSTM ──────────────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # PARTIE 2 — DEEP LEARNING ÉTENDU
+    # ════════════════════════════════════════════════════════════════════════
     master_path = ROOT / "data" / "processed" / "master_dataset.csv"
+    df_dl = None
+
     if master_path.exists():
         master = pd.read_csv(master_path, parse_dates=["date"], index_col="date")
-        master.index.freq = "MS"
+        try:
+            master.index = pd.DatetimeIndex(master.index, freq="MS")
+        except Exception:
+            master.index = pd.DatetimeIndex(master.index)
+            master = master.asfreq("MS")
+
         ipc_series = master["ipc"]
-        besi_series = master[["besi"]]
 
-        print("\n" + "=" * 65)
-        print("  LSTM — Entraînement de base")
-        print("=" * 65)
+        # Exog : besi_trends (signal le plus propre, 100% réel)
+        exog_col = "besi_trends" if "besi_trends" in master.columns else "besi"
+        exog_dl  = master[[exog_col]] if exog_col in master.columns else None
 
-        # LSTM sans exogènes
-        print("\n>>> LSTM (IPC seul)")
-        lstm_ipc = build_lstm(
-            series=ipc_series,
-            exog=None,
-            look_back=12,
-            train_end="2021-12-01",
-            epochs=50,
-            save_fig=True,
-        )
+        print("\n" + "=" * 68)
+        print("  DEEP LEARNING — LSTM / GRU / BiLSTM / XGBoost TS")
+        print(f"  Exog utilisé : {exog_col if exog_dl is not None else 'aucun'}")
+        print("=" * 68)
 
-        # LSTM avec BESI
-        print("\n>>> LSTM + BESI")
-        lstm_besi = build_lstm(
-            series=ipc_series,
-            exog=besi_series,
-            look_back=12,
-            train_end="2021-12-01",
-            epochs=50,
-            save_fig=False,
-        )
-
-        # Comparaison des tailles de fenêtre glissante
-        print("\n" + "=" * 65)
-        print("  LSTM — Comparaison des tailles de fenêtre")
-        print("=" * 65)
-
-        df_window_comp = compare_window_sizes(
-            series=ipc_series,
-            exog=besi_series,
-            window_sizes=[6, 12, 18, 24],
-            train_end="2021-12-01",
-            epochs=50,
-            save_fig=True,
+        df_dl = compare_all_dl_models(
+            series    = ipc_series,
+            exog      = exog_dl,
+            look_back = 12,
+            train_end = "2021-12-01",
+            epochs    = 50,
+            save_fig  = True,
         )
     else:
-        print(f"\n[WARNING] Fichier master_dataset.csv manquant : {master_path}")
-        lstm_ipc = lstm_besi = df_window_comp = None
+        print(f"\n[WARNING] master_dataset.csv manquant : {master_path}")
+        print("  Lancer d'abord : python src/data_pipeline.py")
 
-    # ── Prophet ────────────────────────────────────────────────────────────────
-    from prophet_model import train_prophet
-    print("\n" + "=" * 65)
-    print("  PROPHET — Prévision IPC Maroc")
-    print("=" * 65)
-    prophet_results = train_prophet(master, train_end="2021-12-01")
-    if prophet_results:
-        print(f"  RMSE : {prophet_results['rmse']:.5f}")
-        print(f"  MAE  : {prophet_results['mae']:.5f}")
-        print(f"  MAPE : {prophet_results['mape']:.2f}%")
+    # ════════════════════════════════════════════════════════════════════════
+    # PARTIE 3 — PROPHET (benchmark alternatif)
+    # ════════════════════════════════════════════════════════════════════════
+    prophet_results = None
+    try:
+        from prophet_model import train_prophet
+        print("\n" + "=" * 68)
+        print("  PROPHET — Benchmark alternatif")
+        print("=" * 68)
+        if master_path.exists():
+            prophet_results = train_prophet(master, train_end="2021-12-01")
+            if prophet_results:
+                print(f"  RMSE  : {prophet_results['rmse']:.5f}")
+                print(f"  MAE   : {prophet_results['mae']:.5f}")
+                print(f"  MAPE  : {prophet_results['mape']:.2f}%")
+    except Exception as e:
+        print(f"  [WARN] Prophet non disponible : {e}")
 
-    print("\n" + "=" * 65)
-    print("  RÉSUMÉ FINAL — Comparaison v2")
-    print("=" * 65)
+    # ════════════════════════════════════════════════════════════════════════
+    # RÉSUMÉ FINAL
+    # ════════════════════════════════════════════════════════════════════════
+    print("\n" + "=" * 68)
+    print("  RÉSUMÉ FINAL COMPLET")
+    print("=" * 68)
 
-    # Tableau de synthèse
-    h1_cols = [c for c in df_cmp.columns if "h1" in c]
-    print("\nMétriques globales (h=1) :")
+    # — SARIMA/SARIMAX ─────────────────────────────────────────────────────
+    h1_cols = [c for c in df_cmp.columns if "h1" in c.lower()]
+    print("\n[ SARIMA / SARIMAX — Métriques h=1 ]")
     print(df_cmp[["AIC", "BIC"] + h1_cols].to_string())
 
-    # Meilleur modèle
     rmse_col = "RMSE_h1"
     if rmse_col in df_cmp.columns:
-        best = df_cmp[rmse_col].idxmin()
-        best_rmse = df_cmp.loc[best, rmse_col]
+        best_sarimax      = df_cmp[rmse_col].idxmin()
+        best_rmse_sarimax = df_cmp.loc[best_sarimax, rmse_col]
         sarima_rmse = df_cmp.loc["SARIMA", rmse_col] if "SARIMA" in df_cmp.index else None
-        print(f"\n  Meilleur modele : {best}  (RMSE = {best_rmse:.5f})")
+        print(f"\n  Meilleur SARIMAX : {best_sarimax}  (RMSE={best_rmse_sarimax:.5f})")
         if sarima_rmse:
-            gain = (sarima_rmse - best_rmse) / sarima_rmse * 100
-            print(f"  Gain vs SARIMA  : {gain:+.1f}%")
+            gain = (sarima_rmse - best_rmse_sarimax) / sarima_rmse * 100
+            print(f"  Gain vs SARIMA   : {gain:+.1f}%")
 
-    # Tableau sous-périodes
-    print("\nPerformances par sous-période :")
-    print(df_period.to_string(index=False))
+    # — Deep Learning ─────────────────────────────────────────────────────
+    if df_dl is not None:
+        print("\n[ DEEP LEARNING — Résumé ]")
+        print(df_dl[["Modele", "RMSE", "MAE", "MAPE%", "Temps_s"]].to_string(index=False))
+        best_dl = df_dl.iloc[0]
+        print(f"\n  Meilleur DL : {best_dl['Modele']}  (RMSE={best_dl['RMSE']:.5f})")
+        if sarima_rmse:
+            gain_dl = (sarima_rmse - best_dl["RMSE"]) / sarima_rmse * 100
+            sign = "meilleur" if gain_dl > 0 else "moins bon"
+            print(f"  vs SARIMA    : {gain_dl:+.1f}%  ({sign})")
 
-    # ── Résumé LSTM ──────────────────────────────────────────────────────────
-    if lstm_ipc and lstm_besi:
-        print("\n" + "=" * 65)
-        print("  RÉSUMÉ LSTM")
-        print("=" * 65)
-        print(f"  LSTM (IPC seul)  : RMSE={lstm_ipc['rmse']:.5f}  MAE={lstm_ipc['mae']:.5f}  MAPE={lstm_ipc['mape']:.2f}%")
-        print(f"  LSTM + BESI      : RMSE={lstm_besi['rmse']:.5f}  MAE={lstm_besi['mae']:.5f}  MAPE={lstm_besi['mape']:.2f}%")
-
-        if df_window_comp is not None:
-            print("\n  Comparaison fenêtres glissantes :")
-            for _, row in df_window_comp.iterrows():
-                typ = "avec BESI" if row["type"] == "avec_exog" else "sans exog"
-                print(f"    {int(row['window_size']):2d} mois ({typ:<10}) : RMSE={row['rmse']:.5f}")
-
-    # ── Résumé Prophet ───────────────────────────────────────────────────────
+    # — Prophet ───────────────────────────────────────────────────────────
     if prophet_results:
-        print("\n" + "=" * 65)
-        print("  RÉSUMÉ PROPHET")
-        print("=" * 65)
-        print(f"  Prophet : RMSE={prophet_results['rmse']:.5f}  MAE={prophet_results['mae']:.5f}  MAPE={prophet_results['mape']:.2f}%")
+        print(f"\n[ PROPHET ]  RMSE={prophet_results['rmse']:.5f}  "
+              f"MAE={prophet_results['mae']:.5f}  "
+              f"MAPE={prophet_results['mape']:.2f}%")
 
+    # — Vérification fichiers exportés ────────────────────────────────────
+    print("\n[ Fichiers exportés ]")
     rep_dir = ROOT / "outputs" / "reports"
-    print(f"\n  Fichiers sauvegardés dans {rep_dir}/")
-    for f in ["model_comparison_v2.csv", "period_performance_v2.csv", "data_sources.txt"]:
-        p = rep_dir / f
-        status = "OK" if p.exists() else "MANQUANT"
-        print(f"    [{status}]  {f}")
-
-    # Fichiers LSTM
-    if lstm_ipc:
-        lstm_files = ["lstm_window_comparison.csv"]
-        for f in lstm_files:
-            p = rep_dir / f
-            status = "OK" if p.exists() else "MANQUANT"
-            print(f"    [{status}]  {f}")
-
     fig_dir = ROOT / "outputs" / "figures"
-    for f in ["compare_all_predictions_v2.png", "period_performance_v2.png",
-              "gain_vs_sarima_v2.png"]:
+
+    report_files = [
+        "model_comparison_v2.csv",
+        "period_performance_v2.csv",
+        "dl_comparison.csv",
+        "prophet_results.csv",
+    ]
+    figure_files = [
+        "compare_all_predictions_v2.png",
+        "period_performance_v2.png",
+        "gain_vs_sarima_v2.png",
+        "dl_comparison_rmse.png",
+        "dl_predictions_all.png",
+        "lstm_predictions.png",
+        "gru_predictions.png",
+        "bilstm_predictions.png",
+        "xgboost_ts_predictions.png",
+        "prophet_forecast.png",
+    ]
+
+    for f in report_files:
+        p = rep_dir / f
+        print(f"  [{'OK' if p.exists() else 'MANQUANT':>8}]  reports/{f}")
+    for f in figure_files:
         p = fig_dir / f
-        status = "OK" if p.exists() else "MANQUANT"
-        print(f"    [{status}]  figures/{f}")
+        print(f"  [{'OK' if p.exists() else 'MANQUANT':>8}]  figures/{f}")
 
-    # Figures LSTM
-    if lstm_ipc:
-        lstm_figs = ["lstm_predictions.png", "lstm_window_comparison.png"]
-        for f in lstm_figs:
-            p = fig_dir / f
-            status = "OK" if p.exists() else "MANQUANT"
-            print(f"    [{status}]  figures/{f}")
-
-    # Figures Prophet
-    if prophet_results:
-        prophet_figs = ["prophet_forecast.png"]
-        for f in prophet_figs:
-            p = fig_dir / f
-            status = "OK" if p.exists() else "MANQUANT"
-            print(f"    [{status}]  figures/{f}")
-
-    print("\n  Terminé.")
+    print("\n  Terminé — run_v2.py v2.1")

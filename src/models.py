@@ -1546,6 +1546,53 @@ def compare_models_v2(
     trends_full = trends_col.reindex(s_full.index).ffill().fillna(0.0)
     besi_t_full = besi_trends.reindex(s_full.index).ffill().fillna(0.0)
 
+    # ── 3b. Sous-indices thématiques Google Trends ────────────────────────────
+    # Critique prof : regrouper tous les mots-clés dans un seul indice peut
+    # être biaisé. On crée 3 sous-indices thématiques depuis trends_monthly.csv.
+    trends_csv = proc_dir / "trends_monthly.csv"
+    _prix_full    = pd.Series(np.nan, index=s_full.index, name="trends_prix")
+    _inf_full     = pd.Series(np.nan, index=s_full.index, name="trends_inflation")
+    _stress_full  = pd.Series(np.nan, index=s_full.index, name="trends_stress")
+
+    if trends_csv.exists():
+        df_tr = pd.read_csv(trends_csv, index_col=0, parse_dates=True)
+        try:
+            df_tr.index = pd.DatetimeIndex(df_tr.index, freq="MS")
+        except Exception:
+            df_tr.index = pd.DatetimeIndex(df_tr.index)
+            df_tr = df_tr.asfreq("MS")
+
+        # trends_prix     = moyenne("prix huile", "hausse prix") — signal prix
+        prix_cols = [c for c in ["prix huile", "hausse prix"] if c in df_tr.columns]
+        if prix_cols:
+            _prix_full = df_tr[prix_cols].mean(axis=1).reindex(s_full.index).ffill().fillna(0.0)
+            _prix_full.name = "trends_prix"
+
+        # trends_inflation = "inflation maroc" seul — signal ancrage
+        if "inflation maroc" in df_tr.columns:
+            _inf_full = df_tr["inflation maroc"].reindex(s_full.index).ffill().fillna(0.0)
+            _inf_full.name = "trends_inflation"
+
+        # trends_stress    = moyenne("credit consommation", "chomage maroc") — stress ménages
+        stress_cols = [c for c in ["credit consommation", "chomage maroc"] if c in df_tr.columns]
+        if stress_cols:
+            _stress_full = df_tr[stress_cols].mean(axis=1).reindex(s_full.index).ffill().fillna(0.0)
+            _stress_full.name = "trends_stress"
+
+        print(f"  [INFO] Sous-indices thématiques chargés depuis trends_monthly.csv")
+        print(f"         trends_prix     : {_prix_full.notna().sum()} obs  mean={_prix_full.mean():.3f}")
+        print(f"         trends_inflation: {_inf_full.notna().sum()} obs  mean={_inf_full.mean():.3f}")
+        print(f"         trends_stress   : {_stress_full.notna().sum()} obs  mean={_stress_full.mean():.3f}")
+    else:
+        print("  [WARN] trends_monthly.csv introuvable — sous-indices thématiques à NaN")
+
+    # besi_enrichi depuis master_dataset (si disponible)
+    _be_full = pd.Series(np.nan, index=s_full.index, name="besi_enrichi")
+    if "besi_enrichi" in master_df.columns:
+        _be_full = master_df["besi_enrichi"].reindex(s_full.index).ffill().fillna(0.0)
+        _be_full.name = "besi_enrichi"
+        print(f"  [INFO] besi_enrichi chargé depuis master_dataset.csv  mean={_be_full.mean():.3f}")
+
     # Index de coupure train/test
     test_start = (pd.Timestamp(train_end) + pd.offsets.MonthBegin(1)).strftime("%Y-%m-%d")
     n_test = len(s_full.loc[test_start:test_end])
@@ -1584,15 +1631,25 @@ def compare_models_v2(
 
     # ── 5. Walk-forward pour chaque modèle ────────────────────────────────────
     models_def = {
-        "Naif":        None,           # traité séparément
-        "SARIMA":      None,
-        "SARIMAX_T":   "trends",
-        "SARIMAX_BT":  "besi_trends",
+        "Naif":           None,           # traité séparément
+        "SARIMA":         None,
+        "SARIMAX_T":      "trends",
+        "SARIMAX_BT":     "besi_trends",
+        # ── Sous-indices thématiques (critique prof) ──────────────────────────
+        "SARIMAX_prix":   "trends_prix",       # signal prix directs
+        "SARIMAX_inf":    "trends_inflation",   # signal ancrage inflation
+        "SARIMAX_stress": "trends_stress",      # signal stress ménages
+        # ── BESI enrichi (validation formelle) ───────────────────────────────
+        "SARIMAX_BE":     "besi_enrichi",
     }
 
     exog_map = {
-        "trends":      trends_full.to_frame("trends_composite"),
-        "besi_trends": besi_t_full.to_frame("besi_trends"),
+        "trends":           trends_full.to_frame("trends_composite"),
+        "besi_trends":      besi_t_full.to_frame("besi_trends"),
+        "trends_prix":      _prix_full.to_frame("trends_prix"),
+        "trends_inflation": _inf_full.to_frame("trends_inflation"),
+        "trends_stress":    _stress_full.to_frame("trends_stress"),
+        "besi_enrichi":     _be_full.to_frame("besi_enrichi"),
     }
 
     all_wf: dict[str, dict] = {}
@@ -1712,10 +1769,16 @@ def compare_models_v2(
         import matplotlib.gridspec as _gs
 
         _palette_v2 = {
-            "Naif":       "#AAAAAA",
-            "SARIMA":     _COL_ORIG,
-            "SARIMAX_T":  _COL_DIFF,
-            "SARIMAX_BT": _COL_TREND,
+            "Naif":           "#AAAAAA",
+            "SARIMA":         _COL_ORIG,
+            "SARIMAX_T":      _COL_DIFF,
+            "SARIMAX_BT":     _COL_TREND,
+            # sous-indices thématiques
+            "SARIMAX_prix":   "#E07B39",
+            "SARIMAX_inf":    "#9467BD",
+            "SARIMAX_stress": "#17BECF",
+            # BESI enrichi
+            "SARIMAX_BE":     "#D62728",
         }
 
         # Figure 1 : Prédictions superposées (h=1)
