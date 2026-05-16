@@ -90,8 +90,8 @@ def step_ingest(skip_existing: bool = True) -> None:
     else:
         logger.info("  Téléchargement FAO Food Price Index...")
         try:
-            from src.ingestion.fao import ingest_fao
-            df_fao = ingest_fao(output_path=fao_bronze)
+            from src.ingestion.fao import ingest_fao_fpi
+            df_fao = ingest_fao_fpi(output_path=fao_bronze)
             _ok(f"FAO téléchargé : {len(df_fao)} mois")
         except Exception as e:
             _fail("FAO ingest", e, fatal=False)

@@ -155,9 +155,14 @@ def build_gold_dataset(
     if "inflation_yoy" in gold.columns:
         gold["target_inflation_yoy_t1"]         = gold["inflation_yoy"].shift(-1)
     if "inflation_yoy" in gold.columns:
-        gold["target_high_inflation_regime_t1"] = (
-            gold["inflation_yoy"].shift(-1) >= INFLATION_REGIME_THRESHOLD
-        ).astype(float)   # float pour garder NaN en fin de série
+        # Décaler d'abord, PUIS tester — ainsi le dernier mois reste NaN
+        # (la comparaison booléenne transformerait NaN→False→0.0 sans ce garde)
+        _shifted_yoy = gold["inflation_yoy"].shift(-1)
+        gold["target_high_inflation_regime_t1"] = np.where(
+            _shifted_yoy.isna(),
+            np.nan,
+            (_shifted_yoy >= INFLATION_REGIME_THRESHOLD).astype(float),
+        )
     if "ipc_level" in gold.columns:
         gold["target_ipc_level_t1"]             = gold["ipc_level"].shift(-1)
 
@@ -201,24 +206,59 @@ def build_gold_dataset(
 
 def _validate_gold(gold: pd.DataFrame) -> None:
     """Vérifie qu'aucune règle as-of-date n'est violée."""
-    errors = []
+    errors   = []
+    warnings = []
 
-    # ipc_change ne doit pas être dans les features (c'est une transfo de la cible)
+    # ── Colonnes strictement interdites (data leakage direct) ─────────────────
+    # ipc_change = dérivée de la cible → ne doit jamais être une feature
     forbidden = ["ipc_change"]
     for col in forbidden:
-        if col in gold.columns and col not in [c for c in gold.columns if "target" in c]:
+        if col in gold.columns:
             errors.append(f"  ✗ Colonne interdite (data leakage) : {col}")
 
-    # Les lag0 de l'IPC courant ne peuvent pas être utilisés pour prédire IPC(t)
-    # car IPC(t) est la cible → vérifier que ipc_level_lag0 n'est pas présent
-    if "ipc_level" in gold.columns and "ipc_level_lag0" not in gold.columns:
-        # ipc_level sans lag = contemporain → acceptable seulement si utilisé lagué en modélisation
-        logger.debug("  Note : ipc_level présent sans lag — s'assurer de ne l'utiliser qu'avec lag >= 1")
+    # ── Colonnes contemporaines dangereuses ────────────────────────────────────
+    # Ces colonnes sont présentes dans le Gold (pour référence et calcul des lags),
+    # mais NE DOIVENT PAS être utilisées directement comme features de modélisation.
+    # Seules leurs versions laggées (_lag1, _lag2, …) sont légitimes.
+    contemporaneous_danger = [
+        "ipc_level",        # = quasi-cible pour prédire ipc_level_t1
+        "inflation_yoy",    # = quasi-cible pour prédire target_inflation_yoy_t1
+        "inflation_mom",    # publication ~J+20, non dispo au moment de la prédiction
+        "inflation_regime", # dérivé de inflation_yoy courant
+    ]
+    found_danger = [c for c in contemporaneous_danger if c in gold.columns]
+    if found_danger:
+        warnings.append(
+            f"  ⚠ Colonnes contemporaines présentes (usage en features INTERDIT) : "
+            f"{found_danger}\n"
+            "    → Utiliser uniquement les versions _lag1, _lag2, _lag3"
+        )
+
+    # ── Vérifier que les lags existent bien ───────────────────────────────────
+    for col in ["ipc_level", "inflation_yoy"]:
+        if col in gold.columns and f"{col}_lag1" not in gold.columns:
+            warnings.append(f"  ⚠ '{col}_lag1' absent alors que '{col}' est présent")
+
+    # ── Vérifier que les targets sont bien décalées ───────────────────────────
+    for target_col, source_col in [
+        ("target_inflation_yoy_t1", "inflation_yoy"),
+        ("target_ipc_level_t1",     "ipc_level"),
+    ]:
+        if target_col in gold.columns and source_col in gold.columns:
+            # Le dernier mois doit être NaN dans la target
+            if gold[target_col].iloc[-1] is not None and not pd.isna(gold[target_col].iloc[-1]):
+                errors.append(
+                    f"  ✗ '{target_col}' : dernier mois non-NaN "
+                    f"({gold[target_col].iloc[-1]}) — vérifier le shift(-1)"
+                )
+
+    for w in warnings:
+        logger.warning(w)
 
     if errors:
         for e in errors:
             logger.error(e)
-        raise ValueError(f"Violations as-of-date détectées :\n" + "\n".join(errors))
+        raise ValueError("Violations as-of-date détectées :\n" + "\n".join(errors))
     else:
         logger.info("  ✓ Validation as-of-date : OK")
 

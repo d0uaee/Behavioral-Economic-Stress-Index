@@ -69,27 +69,18 @@ def _mape(y_true, y_pred):
 
 # ─── Prédictions ──────────────────────────────────────────────────────────────
 
-def _naive_predict(train_series: pd.Series, n_steps: int) -> np.ndarray:
-    """Naïf : prévision = dernier ipc_level observé (sans drift)."""
-    return np.full(n_steps, train_series.iloc[-1])
+def _naive_predict_one(train_series: pd.Series) -> float:
+    """Naïf : prévision = dernier ipc_level observé."""
+    return float(train_series.iloc[-1])
 
 
-def _sarima_predict(
+def _sarima_fit(
     train_series: pd.Series,
-    n_steps:      int,
-    exog_train:   "pd.Series | pd.DataFrame | None" = None,
-    exog_test:    "pd.Series | pd.DataFrame | None" = None,
-) -> np.ndarray:
+    exog_train:   "pd.DataFrame | None" = None,
+):
     """
-    Ajuste un SARIMA(2,1,1)×(0,1,1)[12] sur train_series,
-    puis prédit n_steps mois en avant.
-
-    Paramètres
-    ----------
-    train_series : pd.Series de ipc_level (fréquence MS)
-    n_steps      : nombre de mois à prévoir
-    exog_train   : variable(s) exogènes sur la période train (optionnel)
-    exog_test    : variable(s) exogènes sur la période test  (optionnel)
+    Ajuste un SARIMA(2,1,1)×(0,1,1)[12] sur train_series.
+    Retourne le résultat fitté, ou None si échec.
     """
     try:
         from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -98,23 +89,88 @@ def _sarima_predict(
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-
         model = SARIMAX(
             train_series,
-            exog             = exog_train,
-            order            = SARIMA_ORDER,
-            seasonal_order   = SARIMA_SEASONAL,
+            exog                  = exog_train,
+            order                 = SARIMA_ORDER,
+            seasonal_order        = SARIMA_SEASONAL,
             enforce_stationarity  = False,
             enforce_invertibility = False,
         )
         try:
-            result = model.fit(disp=False, maxiter=200)
+            return model.fit(disp=False, maxiter=200)
         except Exception as e:
-            logger.warning(f"SARIMA fit failed ({e}) — fallback naïf")
-            return _naive_predict(train_series, n_steps)
+            logger.debug(f"  SARIMA fit failed : {e}")
+            return None
 
-        forecast = result.get_forecast(steps=n_steps, exog=exog_test)
-        return forecast.predicted_mean.values
+
+def _walk_forward_predict(
+    gold:        pd.DataFrame,
+    target_col:  str,
+    train_start: pd.Timestamp,
+    train_end:   pd.Timestamp,
+    test_dates:  pd.DatetimeIndex,
+    model_type:  str,                       # "naif" | "sarima" | "sarimax"
+    exog_col:    "str | None" = None,
+) -> np.ndarray:
+    """
+    Vrai walk-forward expanding window (1-step-ahead).
+
+    Pour chaque date t dans test_dates :
+      - Train sur [train_start, t-1]
+      - Prédit t+1 (un seul pas)
+      - Enregistre la prédiction
+
+    Retourne un array de longueur len(test_dates).
+    """
+    preds = []
+
+    for i, test_date in enumerate(test_dates):
+        # Fenêtre train expansible : tout jusqu'au mois PRÉCÉDANT test_date
+        cutoff      = test_date - pd.offsets.MonthBegin(1)
+        train_slice = gold.loc[train_start:cutoff, target_col].dropna()
+
+        if len(train_slice) < 24:
+            # Pas assez de données — fallback naïf
+            preds.append(float(train_slice.iloc[-1]) if len(train_slice) > 0 else np.nan)
+            continue
+
+        if model_type == "naif":
+            preds.append(_naive_predict_one(train_slice))
+            continue
+
+        # SARIMA / SARIMAX
+        exog_tr = None
+        exog_te = None
+        if model_type == "sarimax" and exog_col and exog_col in gold.columns:
+            exog_series = gold[exog_col]
+            exog_tr_raw = exog_series.loc[train_start:cutoff].reindex(train_slice.index)
+            exog_tr_raw = exog_tr_raw.ffill().bfill()
+            if exog_tr_raw.isna().mean() < 0.3:
+                exog_tr = exog_tr_raw.to_frame(exog_col)
+                # Exog pour le pas de prévision (test_date)
+                te_val = exog_series.get(test_date, np.nan)
+                if pd.isna(te_val):
+                    te_val = exog_series.loc[:cutoff].iloc[-1] if len(exog_series.loc[:cutoff]) > 0 else 0.0
+                exog_te = pd.DataFrame({exog_col: [te_val]})
+
+        fit_result = _sarima_fit(train_slice, exog_train=exog_tr)
+        if fit_result is None:
+            preds.append(_naive_predict_one(train_slice))
+            continue
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                fc = fit_result.get_forecast(steps=1, exog=exog_te)
+                preds.append(float(fc.predicted_mean.iloc[0]))
+            except Exception:
+                preds.append(_naive_predict_one(train_slice))
+
+        if (i + 1) % 6 == 0:
+            logger.info(f"    Walk-forward {model_type} : {i+1}/{len(test_dates)} pas effectués")
+
+    return np.array(preds)
 
 
 # ─── Backtest principal ────────────────────────────────────────────────────────
@@ -126,11 +182,16 @@ def run_backtest(
     """
     Lance le backtest complet sur les 3 blocs A/B/C.
 
+    Méthode : expanding-window walk-forward 1-step-ahead.
+    Pour chaque mois du bloc test, le modèle est ré-ajusté sur
+    [train_start, mois-1] puis prédit le mois courant.
+    Ce n'est PAS un forecast multi-pas sur tout le bloc test d'un coup.
+
     Modèles testés :
-        naif          — prévision constante
-        sarima        — SARIMA pur
-        sarimax_beh   — SARIMAX + behavioral_index_pure (lag1)
-        sarimax_hyb   — SARIMAX + hybrid_macro_index    (lag1)
+        naif               — prévision constante (dernier IPC observé)
+        sarima             — SARIMA(2,1,1)×(0,1,1)[12] pur
+        sarimax_behavioral — SARIMAX + behavioral_index_pure (lag1)
+        sarimax_hybrid     — SARIMAX + hybrid_macro_index    (lag1)
 
     Retourne
     --------
@@ -186,10 +247,16 @@ def run_backtest(
             logger.warning(f"Bloc {lbl} : aucune observation test — ignoré")
             continue
 
-        logger.info(f"\nBloc {lbl} | train={len(y_train)} mois | test={n} mois")
+        logger.info(f"\nBloc {lbl} | train initial={len(y_test)} mois | test={n} mois")
+        logger.info(f"  → Walk-forward 1-step-ahead (re-fit à chaque pas)")
 
-        # ── Modèle 1 : Naïf ──────────────────────────────────────────────────
-        pred_naif = _naive_predict(y_train, n)
+        test_dates = y_test.index
+
+        # ── Modèle 1 : Naïf (walk-forward) ───────────────────────────────────
+        logger.info(f"  Naïf...")
+        pred_naif = _walk_forward_predict(
+            gold, target_col, train_start, train_end, test_dates, "naif"
+        )
         rows.append({
             "bloc": lbl, "model": "naif",
             "rmse": _rmse(y_test, pred_naif),
@@ -199,8 +266,11 @@ def run_backtest(
         })
         pred_frames.append(_pred_frame(y_test, pred_naif, lbl, "naif"))
 
-        # ── Modèle 2 : SARIMA ────────────────────────────────────────────────
-        pred_sarima = _sarima_predict(y_train, n)
+        # ── Modèle 2 : SARIMA walk-forward ────────────────────────────────────
+        logger.info(f"  SARIMA expanding-window (peut prendre ~{n//2} secondes)...")
+        pred_sarima = _walk_forward_predict(
+            gold, target_col, train_start, train_end, test_dates, "sarima"
+        )
         rows.append({
             "bloc": lbl, "model": "sarima",
             "rmse": _rmse(y_test, pred_sarima),
@@ -210,37 +280,39 @@ def run_backtest(
         })
         pred_frames.append(_pred_frame(y_test, pred_sarima, lbl, "sarima"))
 
-        # ── Modèle 3 : SARIMAX + behavioral ─────────────────────────────────
+        # ── Modèle 3 : SARIMAX + behavioral (walk-forward) ────────────────────
         if beh_col in gold.columns:
-            exog_tr = _get_exog(train, beh_col, y_train.index)
-            exog_te = _get_exog(test,  beh_col, y_test.index)
-            if exog_tr is not None and exog_te is not None:
-                pred_beh = _sarima_predict(y_train, n, exog_train=exog_tr, exog_test=exog_te)
-                rows.append({
-                    "bloc": lbl, "model": "sarimax_behavioral",
-                    "rmse": _rmse(y_test, pred_beh),
-                    "mae":  _mae(y_test,  pred_beh),
-                    "mape": _mape(y_test, pred_beh),
-                    "n_test": n,
-                })
-                pred_frames.append(_pred_frame(y_test, pred_beh, lbl, "sarimax_behavioral"))
+            logger.info(f"  SARIMAX + behavioral...")
+            pred_beh = _walk_forward_predict(
+                gold, target_col, train_start, train_end, test_dates,
+                "sarimax", exog_col=beh_col,
+            )
+            rows.append({
+                "bloc": lbl, "model": "sarimax_behavioral",
+                "rmse": _rmse(y_test, pred_beh),
+                "mae":  _mae(y_test,  pred_beh),
+                "mape": _mape(y_test, pred_beh),
+                "n_test": n,
+            })
+            pred_frames.append(_pred_frame(y_test, pred_beh, lbl, "sarimax_behavioral"))
         else:
             logger.warning(f"  '{beh_col}' absent du Gold — SARIMAX_behavioral ignoré")
 
-        # ── Modèle 4 : SARIMAX + hybrid ──────────────────────────────────────
+        # ── Modèle 4 : SARIMAX + hybrid (walk-forward) ────────────────────────
         if hyb_col in gold.columns:
-            exog_tr = _get_exog(train, hyb_col, y_train.index)
-            exog_te = _get_exog(test,  hyb_col, y_test.index)
-            if exog_tr is not None and exog_te is not None:
-                pred_hyb = _sarima_predict(y_train, n, exog_train=exog_tr, exog_test=exog_te)
-                rows.append({
-                    "bloc": lbl, "model": "sarimax_hybrid",
-                    "rmse": _rmse(y_test, pred_hyb),
-                    "mae":  _mae(y_test,  pred_hyb),
-                    "mape": _mape(y_test, pred_hyb),
-                    "n_test": n,
-                })
-                pred_frames.append(_pred_frame(y_test, pred_hyb, lbl, "sarimax_hybrid"))
+            logger.info(f"  SARIMAX + hybrid...")
+            pred_hyb = _walk_forward_predict(
+                gold, target_col, train_start, train_end, test_dates,
+                "sarimax", exog_col=hyb_col,
+            )
+            rows.append({
+                "bloc": lbl, "model": "sarimax_hybrid",
+                "rmse": _rmse(y_test, pred_hyb),
+                "mae":  _mae(y_test,  pred_hyb),
+                "mape": _mape(y_test, pred_hyb),
+                "n_test": n,
+            })
+            pred_frames.append(_pred_frame(y_test, pred_hyb, lbl, "sarimax_hybrid"))
         else:
             logger.warning(f"  '{hyb_col}' absent du Gold — SARIMAX_hybrid ignoré")
 
@@ -264,18 +336,6 @@ def run_backtest(
     _print_summary(results_df)
     return results_df
 
-
-def _get_exog(
-    df:      pd.DataFrame,
-    col:     str,
-    idx:     pd.DatetimeIndex,
-) -> "pd.DataFrame | None":
-    """Extrait et aligne une colonne exogène ; retourne None si trop de NaN."""
-    s = df[col].reindex(idx)
-    if s.isna().mean() > 0.3:
-        logger.warning(f"  '{col}' : >{30}% NaN → exog ignorée")
-        return None
-    return s.ffill().bfill().to_frame(col)
 
 
 def _pred_frame(

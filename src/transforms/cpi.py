@@ -85,8 +85,13 @@ def transform_cpi(
 
     result["is_official"] = df.get("is_official", True)
 
-    # Régime inflation (cible binaire)
-    result["inflation_regime"] = (result["inflation_yoy"] >= INFLATION_REGIME_THRESHOLD).astype(int)
+    # Régime inflation (cible binaire) — NaN préservé si inflation_yoy est NaN
+    # (les 12 premiers mois n'ont pas de YoY — ils ne doivent pas silencieusement valoir 0)
+    result["inflation_regime"] = np.where(
+        result["inflation_yoy"].isna(),
+        np.nan,
+        (result["inflation_yoy"] >= INFLATION_REGIME_THRESHOLD).astype(float),
+    )
 
     # Rapport qualité
     n_regime_1 = result["inflation_regime"].sum()

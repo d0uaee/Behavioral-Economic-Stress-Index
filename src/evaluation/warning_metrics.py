@@ -101,31 +101,54 @@ def _f1_at_threshold(y_true, scores, t):
     return float(prec), float(rec), float(f1), int(tp), int(fp), int(fn)
 
 
-def _lead_time(y_true_series: pd.Series, scores_series: pd.Series, threshold: float) -> float:
+def _lead_time(
+    y_true_series:   pd.Series,
+    scores_series:   pd.Series,
+    threshold:       float,
+    max_lead_months: int = 12,
+) -> float:
     """
-    Lead-time moyen : nombre de mois AVANT la 1ère observation du régime
-    à laquelle le signal dépasse le seuil pour la 1ère fois.
-    Retourne np.nan si aucun épisode détectable.
+    Lead-time moyen sur les épisodes de haute inflation.
+
+    Définition rigoureuse :
+    - Un épisode commence au 1er mois consécutif avec y=1.
+    - L'alerte valide est la DERNIÈRE fois que le signal dépasse le seuil
+      dans la fenêtre [episode_start - max_lead_months, episode_start).
+    - Si aucune alerte dans cette fenêtre → épisode non détecté (ignoré).
+    - Fenêtre maximale explicite : max_lead_months (défaut 12) pour éviter
+      de compter des alertes très anciennes non causalement reliées.
+
+    Retourne
+    --------
+    float : lead-time moyen en mois, ou np.nan si aucun épisode détecté.
     """
     lead_times = []
-
-    # Identifier les épisodes de haute inflation (blocs consécutifs de 1)
-    in_episode  = False
+    in_episode = False
     episode_start = None
 
-    for i, (date, val) in enumerate(y_true_series.items()):
+    # NaN dans y_true → ignorer ces mois
+    y_clean = y_true_series.dropna()
+
+    for date, val in y_clean.items():
         if val == 1 and not in_episode:
             in_episode    = True
             episode_start = date
         elif val == 0 and in_episode:
             in_episode = False
-            # Chercher quand le signal a dépassé le seuil avant episode_start
-            pre_episode = scores_series[scores_series.index < episode_start]
-            alerts = pre_episode[pre_episode >= threshold]
+            # Fenêtre bornée : [episode_start - max_lead, episode_start)
+            window_start = episode_start - pd.DateOffset(months=max_lead_months)
+            window_scores = scores_series[
+                (scores_series.index >= window_start) &
+                (scores_series.index < episode_start)
+            ]
+            alerts = window_scores[window_scores >= threshold]
             if not alerts.empty:
-                first_alert = alerts.index[0]
-                months_ahead = (episode_start.year - first_alert.year) * 12 + \
-                               (episode_start.month - first_alert.month)
+                # Alerte la plus proche du début d'épisode (la plus récente)
+                last_alert = alerts.index[-1]
+                months_ahead = (
+                    (episode_start.year  - last_alert.year)  * 12
+                    + (episode_start.month - last_alert.month)
+                )
                 if months_ahead > 0:
                     lead_times.append(months_ahead)
 
@@ -134,17 +157,53 @@ def _lead_time(y_true_series: pd.Series, scores_series: pd.Series, threshold: fl
 
 # ─── Analyse principale ────────────────────────────────────────────────────────
 
+def _calibrate_threshold(
+    gold:       pd.DataFrame,
+    sig_col:    str,
+    target_col: str,
+    train_mask: pd.Series,
+) -> float:
+    """
+    Trouve le seuil qui maximise F1 sur les données d'entraînement.
+    Retourne 0.5 si pas assez de positifs.
+    """
+    train_df = gold[train_mask]
+    y_tr     = train_df[target_col].dropna()
+    if y_tr.sum() < 3:
+        return 0.5
+
+    scores_tr = train_df[sig_col].reindex(y_tr.index).ffill().bfill().fillna(0).values
+    y_tr_vals = y_tr.values
+
+    best_f1, best_t = 0.0, 0.5
+    for t in np.unique(scores_tr):
+        _, _, f1, *_ = _f1_at_threshold(y_tr_vals, scores_tr, t)
+        if f1 > best_f1:
+            best_f1, best_t = f1, float(t)
+
+    return best_t
+
+
 def compute_warning_metrics(
     gold_path:   str | Path | None = None,
     output_path: str | Path | None = None,
 ) -> pd.DataFrame:
     """
-    Calcule les métriques d'alerte précoce pour behavioral_index_pure
-    et hybrid_macro_index sur l'ensemble des données (et par bloc).
+    Calcule les métriques d'alerte précoce avec séparation stricte
+    calibration / évaluation :
+
+    Pour chaque bloc A/B/C :
+      - Seuil optimal calibré sur le jeu TRAIN correspondant (max F1)
+      - AUC, F1, Precision, Recall, Lead-time évalués sur le TEST
+
+    Pour le rapport global :
+      - AUC calculé sur l'ensemble des données (non biaisé par le seuil)
+      - Seuil = médiane des seuils calibrés sur les 3 blocs train
+      - Lead-time calculé sur l'ensemble des données de test
 
     Retourne
     --------
-    pd.DataFrame avec AUC, F1_optimal, lead_time_mean, etc.
+    pd.DataFrame avec une ligne par (scope, signal).
     """
     if gold_path is None:
         gold_path = GOLD_DIR / "model_dataset_monthly.csv"
@@ -167,19 +226,12 @@ def compute_warning_metrics(
     if target_col not in gold.columns:
         raise KeyError(f"'{target_col}' absent du Gold. Colonnes : {list(gold.columns)}")
 
-    # Signaux à évaluer : lag1 (respecte la règle as-of-date)
+    # Signaux à évaluer (lag1 prioritaire — respecte l'as-of-date)
     signals = {}
-    for col in ["behavioral_index_pure_lag1", "hybrid_macro_index_lag1",
-                "behavioral_index_pure", "hybrid_macro_index"]:
-        if col in gold.columns:
-            signals[col] = col
-            break   # utiliser lag1 en priorité
-
     for col in ["behavioral_index_pure_lag1", "behavioral_index_pure"]:
         if col in gold.columns:
             signals["behavioral"] = col
             break
-
     for col in ["hybrid_macro_index_lag1", "hybrid_macro_index"]:
         if col in gold.columns:
             signals["hybrid"] = col
@@ -191,71 +243,118 @@ def compute_warning_metrics(
             f"Colonnes disponibles : {list(gold.columns)}"
         )
 
-    rows        = []
-    roc_data    = {}   # pour le graphique
-    pr_data     = {}
+    rows     = []
+    roc_data = {}
+    pr_data  = {}
 
-    # Évaluation globale + par bloc
-    for scope, subset in _scopes(gold):
-        y_all = subset[target_col].dropna()
-        if y_all.sum() < 3:
-            logger.warning(f"Scope '{scope}' : moins de 3 positifs — ignoré")
+    # Fenêtres d'évaluation — même définition que backtest
+    from src.gold.build_model_dataset import EVAL_WINDOWS
+
+    for window in EVAL_WINDOWS:
+        lbl        = window["label"]
+        train_mask = gold["split_label"].str.contains(f"train_{lbl}", na=False)
+        test_mask  = gold["split_label"].str.contains(f"test_{lbl}",  na=False)
+
+        gold_test = gold[test_mask]
+        y_test    = gold_test[target_col].dropna()
+
+        if y_test.sum() < 2:
+            logger.warning(f"Bloc {lbl} test : moins de 2 positifs — ignoré")
             continue
 
         for sig_label, sig_col in signals.items():
-            if sig_col not in subset.columns:
+            if sig_col not in gold.columns:
                 continue
 
-            scores = subset[sig_col].reindex(y_all.index).ffill().bfill().fillna(0).values
-            y      = y_all.values
+            # ── Calibration du seuil sur TRAIN ───────────────────────────────
+            best_t = _calibrate_threshold(gold, sig_col, target_col, train_mask)
+            logger.info(f"  Bloc {lbl} | {sig_label} | seuil calibré sur train = {best_t:.4f}")
 
-            # ROC
-            tprs, fprs, thresholds_roc, auc = _compute_roc(y, scores)
-            if scope == "global":
-                roc_data[sig_label] = (fprs, tprs, auc)
+            # ── Évaluation sur TEST ───────────────────────────────────────────
+            scores_te = gold_test[sig_col].reindex(y_test.index).ffill().bfill().fillna(0).values
+            y_te      = y_test.values
 
-            # PR
-            precs, recs, thresholds_pr = _compute_pr(y, scores)
-            if scope == "global":
-                pr_data[sig_label] = (recs, precs)
+            tprs, fprs, _, auc = _compute_roc(y_te, scores_te)
+            precs, recs, _     = _compute_pr(y_te, scores_te)
 
-            # Seuil optimal (max F1)
-            best_f1, best_t = 0.0, 0.5
-            if len(thresholds_pr) > 0:
-                unique_scores = np.unique(scores)
-                for t in unique_scores:
-                    _, _, f1, *_ = _f1_at_threshold(y, scores, t)
-                    if f1 > best_f1:
-                        best_f1, best_t = f1, float(t)
+            prec_ev, rec_ev, f1_ev, tp, fp, fn = _f1_at_threshold(y_te, scores_te, best_t)
 
-            prec_opt, rec_opt, f1_opt, tp, fp, fn = _f1_at_threshold(y, scores, best_t)
-
-            # Lead-time
-            if scope == "global":
-                lt = _lead_time(
-                    subset[target_col].dropna(),
-                    subset[sig_col].reindex(subset[target_col].dropna().index).ffill(),
-                    best_t,
-                )
-            else:
-                lt = float("nan")
+            lt = _lead_time(
+                gold_test[target_col].dropna(),
+                gold_test[sig_col].reindex(gold_test[target_col].dropna().index).ffill(),
+                best_t,
+            )
 
             rows.append({
-                "scope":         scope,
-                "signal":        sig_label,
-                "signal_col":    sig_col,
-                "auc":           round(auc, 4),
-                "f1_optimal":    round(f1_opt, 4),
-                "precision_opt": round(prec_opt, 4),
-                "recall_opt":    round(rec_opt, 4),
-                "threshold_opt": round(best_t, 4),
+                "scope":               f"test_{lbl}",
+                "signal":              sig_label,
+                "signal_col":          sig_col,
+                "threshold_from":      f"train_{lbl}",
+                "threshold_calibrated": round(best_t, 4),
+                "auc":                 round(auc, 4),
+                "f1":                  round(f1_ev, 4),
+                "precision":           round(prec_ev, 4),
+                "recall":              round(rec_ev, 4),
                 "lead_time_mean_months": round(lt, 2) if not np.isnan(lt) else float("nan"),
-                "tp":            tp,
-                "fp":            fp,
-                "fn":            fn,
-                "n_positive":    int(y.sum()),
-                "n_total":       len(y),
+                "tp":                  tp,
+                "fp":                  fp,
+                "fn":                  fn,
+                "n_positive":          int(y_te.sum()),
+                "n_total":             len(y_te),
             })
+
+    # ── Rapport global (AUC sur toutes données, seuil = médiane des trains) ──
+    for sig_label, sig_col in signals.items():
+        if sig_col not in gold.columns:
+            continue
+
+        y_all     = gold[target_col].dropna()
+        scores_all = gold[sig_col].reindex(y_all.index).ffill().bfill().fillna(0).values
+
+        tprs_g, fprs_g, _, auc_g = _compute_roc(y_all.values, scores_all)
+        precs_g, recs_g, _       = _compute_pr(y_all.values, scores_all)
+
+        roc_data[sig_label] = (fprs_g, tprs_g, auc_g)
+        pr_data[sig_label]  = (recs_g, precs_g)
+
+        # Seuil global = médiane des seuils calibrés sur les 3 blocs train
+        global_thresholds = [
+            r["threshold_calibrated"]
+            for r in rows
+            if r["signal"] == sig_label
+        ]
+        global_t = float(np.median(global_thresholds)) if global_thresholds else 0.5
+
+        prec_g, rec_g, f1_g, tp_g, fp_g, fn_g = _f1_at_threshold(
+            y_all.values, scores_all, global_t
+        )
+
+        # Lead-time global sur toutes les données de test
+        test_mask_all = gold["split_label"].str.contains("test_", na=False)
+        gold_test_all = gold[test_mask_all]
+        lt_g = _lead_time(
+            gold_test_all[target_col].dropna(),
+            gold_test_all[sig_col].reindex(gold_test_all[target_col].dropna().index).ffill(),
+            global_t,
+        )
+
+        rows.append({
+            "scope":               "global",
+            "signal":              sig_label,
+            "signal_col":          sig_col,
+            "threshold_from":      "median_of_trains",
+            "threshold_calibrated": round(global_t, 4),
+            "auc":                 round(auc_g, 4),
+            "f1":                  round(f1_g, 4),
+            "precision":           round(prec_g, 4),
+            "recall":              round(rec_g, 4),
+            "lead_time_mean_months": round(lt_g, 2) if not np.isnan(lt_g) else float("nan"),
+            "tp":                  tp_g,
+            "fp":                  fp_g,
+            "fn":                  fn_g,
+            "n_positive":          int(y_all.values.sum()),
+            "n_total":             len(y_all),
+        })
 
     if not rows:
         raise RuntimeError("Aucune métrique calculée — vérifier les données Gold.")
@@ -264,22 +363,12 @@ def compute_warning_metrics(
     metrics_df.to_csv(output_path, index=False)
     logger.info(f"Métriques d'alerte sauvegardées : {output_path}")
 
-    # ── Graphiques ────────────────────────────────────────────────────────────
     _plot_roc(roc_data)
     _plot_pr(pr_data)
     _plot_threshold_analysis(gold, signals)
 
     _print_warning_summary(metrics_df)
     return metrics_df
-
-
-def _scopes(gold: pd.DataFrame):
-    """Génère des sous-ensembles : global + blocs A/B/C."""
-    yield "global", gold
-    for lbl in ["A", "B", "C"]:
-        mask = gold["split_label"].str.contains(f"test_{lbl}", na=False)
-        if mask.sum() > 0:
-            yield f"test_{lbl}", gold[mask]
 
 
 # ─── Graphiques ───────────────────────────────────────────────────────────────
@@ -375,19 +464,34 @@ def _plot_threshold_analysis(gold: pd.DataFrame, signals: dict) -> None:
 
 
 def _print_warning_summary(metrics_df: pd.DataFrame) -> None:
-    print("\n" + "=" * 72)
+    print("\n" + "=" * 78)
     print("MÉTRIQUES D'ALERTE PRÉCOCE V3")
-    print("=" * 72)
-    global_df = metrics_df[metrics_df["scope"] == "global"]
-    print(f"\n{'Signal':<30} {'AUC':>6} {'F1':>6} {'Prec':>6} {'Rec':>6} {'Lead (mois)':>12}")
-    print("-" * 72)
-    for _, row in global_df.iterrows():
-        lt = f"{row['lead_time_mean_months']:.1f}" if not pd.isna(row["lead_time_mean_months"]) else "n/a"
-        print(f"{row['signal']:<30} {row['auc']:>6.3f} {row['f1_optimal']:>6.3f} "
-              f"{row['precision_opt']:>6.3f} {row['recall_opt']:>6.3f} {lt:>12}")
+    print("  Méthode : seuil calibré sur TRAIN, évalué sur TEST (pas de data leakage)")
+    print("=" * 78)
 
-    print("\n  H1 validée si AUC > 0.65  (signal comportemental prédit le régime d'inflation)")
-    print("  H2 validée si ΔAUC(hybrid - behavioral) > 0.05")
+    # Par bloc
+    bloc_df = metrics_df[metrics_df["scope"] != "global"]
+    if not bloc_df.empty:
+        print(f"\n{'Bloc':<10} {'Signal':<20} {'Seuil':>7} {'AUC':>6} {'F1':>6} "
+              f"{'Prec':>6} {'Rec':>6} {'Lead':>6}")
+        print("-" * 78)
+        for _, row in bloc_df.sort_values(["scope", "signal"]).iterrows():
+            lt = f"{row['lead_time_mean_months']:.1f}" if not pd.isna(row["lead_time_mean_months"]) else "n/a"
+            print(f"{row['scope']:<10} {row['signal']:<20} {row['threshold_calibrated']:>7.4f} "
+                  f"{row['auc']:>6.3f} {row['f1']:>6.3f} "
+                  f"{row['precision']:>6.3f} {row['recall']:>6.3f} {lt:>6}")
+
+    # Global
+    global_df = metrics_df[metrics_df["scope"] == "global"]
+    if not global_df.empty:
+        print(f"\n{'GLOBAL (seuil=médiane trains)':<30} {'AUC':>6} {'F1':>6} {'Lead (mois)':>12}")
+        print("-" * 60)
+        for _, row in global_df.iterrows():
+            lt = f"{row['lead_time_mean_months']:.1f}" if not pd.isna(row["lead_time_mean_months"]) else "n/a"
+            print(f"  {row['signal']:<28} {row['auc']:>6.3f} {row['f1']:>6.3f} {lt:>12}")
+
+    print("\n  H1 validée si AUC > 0.65  (signal prédit le régime d'inflation)")
+    print("  H2 validée si ΔAUC(hybrid - behavioral) > 0.05  (macro apporte de la valeur)")
 
     auc_beh = global_df[global_df["signal"] == "behavioral"]["auc"].values
     auc_hyb = global_df[global_df["signal"] == "hybrid"]["auc"].values
@@ -398,7 +502,7 @@ def _print_warning_summary(metrics_df: pd.DataFrame) -> None:
         delta = auc_hyb[0] - auc_beh[0]
         h2 = "✓ VALIDÉE" if delta > 0.05 else "✗ REJETÉE"
         print(f"  → H2 (ΔAUC={delta:+.3f} > 0.05) : {h2}")
-    print("=" * 72)
+    print("=" * 78)
 
 
 if __name__ == "__main__":
