@@ -29,11 +29,19 @@ SILVER_DIR = ROOT / "data" / "silver"
 GOLD_DIR   = ROOT / "data" / "gold"
 GOLD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Fenêtres d'évaluation (3 blocs indépendants)
+# Fenêtres d'évaluation — version COMPLÈTE (données 2010-2024)
 EVAL_WINDOWS = [
     {"label": "A", "train": ("2010-01-01", "2017-12-01"), "test": ("2018-01-01", "2019-12-01")},
     {"label": "B", "train": ("2010-01-01", "2019-12-01"), "test": ("2020-01-01", "2021-12-01")},
     {"label": "C", "train": ("2010-01-01", "2021-12-01"), "test": ("2022-01-01", "2024-12-01")},
+]
+
+# Fenêtres d'évaluation — version COURTE (données 2017-2024, HCP uniquement)
+# Bloc A : période COVID (2020-2021) — test de robustesse choc exogène
+# Bloc B : choc inflationniste (2022-2024) — test principal H1/H2
+SHORT_EVAL_WINDOWS = [
+    {"label": "A", "train": ("2017-01-01", "2019-12-01"), "test": ("2020-01-01", "2021-12-01")},
+    {"label": "B", "train": ("2017-01-01", "2021-12-01"), "test": ("2022-01-01", "2024-12-01")},
 ]
 
 INFLATION_REGIME_THRESHOLD = 2.0   # % YoY
@@ -58,10 +66,21 @@ FEATURE_LAGS = {
 }
 
 
-def _assign_split_label(date: pd.Timestamp) -> str:
+def _select_eval_windows(start_date: str) -> list:
+    """
+    Sélectionne automatiquement les fenêtres d'évaluation selon la date de début.
+    - Données depuis 2010 → EVAL_WINDOWS complet (3 blocs)
+    - Données depuis 2017 → SHORT_EVAL_WINDOWS (2 blocs COVID + inflation)
+    """
+    if pd.Timestamp(start_date) <= pd.Timestamp("2012-01-01"):
+        return EVAL_WINDOWS
+    return SHORT_EVAL_WINDOWS
+
+
+def _assign_split_label(date: pd.Timestamp, windows: list) -> str:
     """Attribue le label de split (train_A/test_A/...) à une date."""
     labels = []
-    for window in EVAL_WINDOWS:
+    for window in windows:
         lbl = window["label"]
         if pd.Timestamp(window["train"][0]) <= date <= pd.Timestamp(window["train"][1]):
             labels.append(f"train_{lbl}")
@@ -71,9 +90,10 @@ def _assign_split_label(date: pd.Timestamp) -> str:
 
 
 def build_gold_dataset(
-    output_path: str | Path | None = None,
-    start_date:  str = "2010-01-01",
-    end_date:    str = "2024-12-01",
+    output_path:  str | Path | None = None,
+    start_date:   str = "2010-01-01",
+    end_date:     str = "2024-12-01",
+    eval_windows: list | None = None,
 ) -> pd.DataFrame:
     """
     Assemble le Gold dataset v3 à partir des Silver layers.
@@ -86,6 +106,12 @@ def build_gold_dataset(
     5. Ajouter as_of_date et split_label
     6. Valider : aucune feature future dans X
 
+    Paramètres
+    ----------
+    start_date   : début de la plage (auto-adapté selon données disponibles)
+    eval_windows : fenêtres d'évaluation — si None, sélectionné automatiquement
+                   selon start_date (FULL si 2010, SHORT si 2017)
+
     Retourne
     --------
     pd.DataFrame avec toutes les colonnes du schéma Gold.
@@ -93,6 +119,26 @@ def build_gold_dataset(
     if output_path is None:
         output_path = GOLD_DIR / "model_dataset_monthly.csv"
     output_path = Path(output_path)
+
+    # Sélection automatique des fenêtres si non forcées
+    if eval_windows is None:
+        eval_windows = _select_eval_windows(start_date)
+    logger.info(f"Fenêtres d'évaluation : {[w['label'] for w in eval_windows]} "
+                f"({'FULL' if len(eval_windows) == 3 else 'SHORT'})")
+
+    # Auto-détection du start_date réel à partir des données CPI disponibles
+    cpi_path_probe = SILVER_DIR / "cpi_monthly.csv"
+    if cpi_path_probe.exists():
+        _probe = pd.read_csv(cpi_path_probe, parse_dates=["month"], index_col="month")
+        actual_start = _probe.index.min()
+        if actual_start > pd.Timestamp(start_date):
+            logger.warning(
+                f"Données CPI disponibles depuis {actual_start.date()} "
+                f"(demandé : {start_date}) — start_date ajusté automatiquement."
+            )
+            start_date = str(actual_start.date())
+            if eval_windows is EVAL_WINDOWS:
+                eval_windows = _select_eval_windows(start_date)
 
     full_idx = pd.date_range(start_date, end_date, freq="MS")
     gold = pd.DataFrame(index=full_idx)
@@ -179,7 +225,9 @@ def build_gold_dataset(
         lambda d: str((d + pd.offsets.MonthEnd(0) + pd.Timedelta(days=1)).date())
     )
 
-    gold["split_label"] = gold.index.to_series().apply(_assign_split_label)
+    gold["split_label"] = gold.index.to_series().apply(
+        lambda d: _assign_split_label(d, eval_windows)
+    )
 
     # ── 8. Validation intégrité ───────────────────────────────────────────────
     _validate_gold(gold)

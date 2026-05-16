@@ -4,15 +4,21 @@ run_v3.py — Pipeline complet BESI Maroc V3
 Orchestrateur principal : exécute toutes les étapes dans l'ordre correct.
 
 Usage :
-    python run_v3.py                    # pipeline complet
-    python run_v3.py --step ingest      # ingestion uniquement
-    python run_v3.py --step transform   # transforms bronze → silver
-    python run_v3.py --step indexes     # construction indices BESI v3
-    python run_v3.py --step gold        # assemblage Gold dataset
-    python run_v3.py --step backtest    # backtest walk-forward
-    python run_v3.py --step warnings    # métriques d'alerte précoce
-    python run_v3.py --step all         # tout (défaut)
-    python run_v3.py --skip-ingest      # saute l'ingestion (données déjà présentes)
+    python run_v3.py                          # pipeline complet (auto-détection plage)
+    python run_v3.py --step ingest            # ingestion uniquement
+    python run_v3.py --step transform         # transforms bronze → silver
+    python run_v3.py --step indexes           # construction indices BESI v3
+    python run_v3.py --step gold              # assemblage Gold dataset
+    python run_v3.py --step backtest          # backtest walk-forward
+    python run_v3.py --step warnings          # métriques d'alerte précoce
+    python run_v3.py --step all               # tout (défaut)
+    python run_v3.py --skip-ingest            # saute l'ingestion (données déjà présentes)
+    python run_v3.py --start-date 2017-01-01  # forcer le début de plage (données partielles)
+
+Mode données partielles (IPC 2017-2024 uniquement) :
+    python run_v3.py --skip-ingest --start-date 2017-01-01
+    → Active automatiquement SHORT_EVAL_WINDOWS (2 blocs : COVID + inflation)
+    → Fonctionne sans données 2010-2016
 
 Architecture des données :
     Bronze : data/bronze/   ← raw, jamais modifié
@@ -133,11 +139,26 @@ def step_transform() -> None:
     _section("ÉTAPE 2 — TRANSFORM Bronze → Silver")
 
     # ── CPI Silver ────────────────────────────────────────────────────────────
+    # Chercher d'abord le fichier bronze standardisé, puis le fichier brut HCP
     cpi_bronze = BRONZE_DIR / "cpi_hcp_monthly_raw.csv"
+    cpi_raw    = BRONZE_DIR / "ipc_hcp_raw.csv"
+
+    if not cpi_bronze.exists() and cpi_raw.exists():
+        # Ingestion du fichier brut HCP → bronze standardisé
+        logger.info("  Ingestion du fichier IPC HCP brut...")
+        try:
+            from src.ingestion.cpi_hcp import ingest_cpi_hcp
+            ingest_cpi_hcp(filepath=cpi_raw, output_path=cpi_bronze)
+            _ok(f"Fichier HCP ingéré → {cpi_bronze.name}")
+        except Exception as e:
+            _fail("CPI HCP ingest", e)
+            return
+
     if not cpi_bronze.exists():
         _fail("CPI transform", FileNotFoundError(
             f"Bronze IPC introuvable : {cpi_bronze}\n"
-            "Télécharger depuis hcp.ma et placer dans data/bronze/"
+            f"  Option 1 : placer votre CSV HCP dans data/bronze/ipc_hcp_raw.csv\n"
+            f"  Option 2 : placer un fichier déjà standardisé dans {cpi_bronze}"
         ))
         return
 
@@ -220,13 +241,13 @@ def step_indexes() -> None:
     _ok("Indices BESI v3 construits")
 
 
-def step_gold() -> None:
+def step_gold(start_date: str = "2010-01-01", end_date: str = "2024-12-01") -> None:
     """Assemble le Gold dataset (lags + targets + split labels)."""
     _section("ÉTAPE 4 — GOLD Dataset")
 
     try:
         from src.gold.build_model_dataset import build_gold_dataset
-        df = build_gold_dataset()
+        df = build_gold_dataset(start_date=start_date, end_date=end_date)
         _ok(f"Gold dataset : {df.shape[0]} mois × {df.shape[1]} colonnes")
         _ok(f"Targets : {[c for c in df.columns if 'target' in c]}")
         _ok(f"Split distribution :\n{df['split_label'].value_counts().to_string()}")
@@ -260,10 +281,12 @@ def step_warnings() -> None:
 
 # ─── Pipeline complet ──────────────────────────────────────────────────────────
 
-def run_all(skip_ingest: bool = False) -> None:
+def run_all(skip_ingest: bool = False, start_date: str = "2010-01-01") -> None:
     t0 = time.time()
     logger.info("\n" + "═" * 60)
     logger.info("  BESI MAROC V3 — PIPELINE COMPLET")
+    mode = "FULL (2010-2024)" if start_date <= "2012-01-01" else f"SHORT ({start_date[:4]}-2024)"
+    logger.info(f"  Mode données : {mode}")
     logger.info("═" * 60)
 
     if not skip_ingest:
@@ -271,7 +294,7 @@ def run_all(skip_ingest: bool = False) -> None:
 
     step_transform()
     step_indexes()
-    step_gold()
+    step_gold(start_date=start_date)
     step_backtest()
     step_warnings()
 
@@ -336,16 +359,26 @@ def main() -> None:
         action="store_true",
         help="Sauter l'ingestion (données bronze déjà présentes)",
     )
+    parser.add_argument(
+        "--start-date",
+        default="2010-01-01",
+        metavar="YYYY-MM-DD",
+        help=(
+            "Date de début de la plage d'analyse (défaut : 2010-01-01). "
+            "Utiliser 2017-01-01 si les données IPC HCP ne sont disponibles "
+            "que depuis 2017 — active automatiquement SHORT_EVAL_WINDOWS."
+        ),
+    )
     args = parser.parse_args()
 
     dispatch = {
         "ingest":    lambda: step_ingest(skip_existing=True),
         "transform": step_transform,
         "indexes":   step_indexes,
-        "gold":      step_gold,
+        "gold":      lambda: step_gold(start_date=args.start_date),
         "backtest":  step_backtest,
         "warnings":  step_warnings,
-        "all":       lambda: run_all(skip_ingest=args.skip_ingest),
+        "all":       lambda: run_all(skip_ingest=args.skip_ingest, start_date=args.start_date),
     }
 
     dispatch[args.step]()
