@@ -148,8 +148,11 @@ Tous les signaux sont normalisés 0-1 avant pondération.
 - BESI anticipe l'inflation de ~12 mois (horizon macroéconomique)
 
 ### 3. Early Warning
-- Rappel = 100% (aucun faux négatif sur les phases de stress)
-- F1-Score approx. 0.82
+- Rappel = 100% (TP=1, FN=0) — sur un seul événement détecté
+- Précision = 7.7% (FP=12) — 12 fausses alertes pour 1 vraie
+- F1-Score = 0.14 (pas opérationnel — seuil à optimiser en v3)
+- **Note v3** : résultats basés sur données partiellement simulées (Reddit/YouTube).
+  La v3 recalibrera sur données réelles uniquement.
 
 ### 4. Performances par sous-période
 

@@ -471,10 +471,12 @@ def load_ipc_data(filepath: str | Path | None = None) -> pd.DataFrame:
 # BESI — Behavioral Economic Stress Index
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_W_TRENDS  = 0.40
+# Poids BESI composite (legacy v1/v2 — conservé pour compatibilité run_all)
+# NOTE v3 : ipc_change retiré du BESI pur → voir src/features/indexes.py
+_W_TRENDS  = 0.50   # rééquilibré : plus de composante IPC
 _W_REDDIT  = 0.30
 _W_YOUTUBE = 0.20
-_W_IPC     = 0.10
+# _W_IPC supprimé — ipc_change ne doit pas être dans un indice comportemental
 
 _THRESH_NORMAL  = 0.35   # < 0.35        → Normal
 _THRESH_WARNING = 0.65   # 0.35 – 0.65  → Warning  /  > 0.65 → High Stress
@@ -518,14 +520,17 @@ def build_besi_index(
         if col in ipc_df.columns:
             master[col] = ipc_df.loc[idx, col]
 
+    # BESI composite — sans ipc_change (évite le data leakage cible → feature)
     master["besi"] = (
         _W_TRENDS  * master["trends_composite"]
         + _W_REDDIT  * master["reddit_composite"]
         + _W_YOUTUBE * master["youtube_composite"]
-        + _W_IPC     * master["ipc_change"]
     )
 
-    def _label(v: float) -> str:
+    def _label(v) -> str:
+        """Labellise uniquement les valeurs non-nulles."""
+        if pd.isna(v):
+            return "Unknown"   # bug fix : NaN ne doit pas devenir "High Stress"
         if v < _THRESH_NORMAL:  return "Normal"
         if v < _THRESH_WARNING: return "Warning"
         return "High Stress"
