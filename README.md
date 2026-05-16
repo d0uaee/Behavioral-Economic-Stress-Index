@@ -103,7 +103,7 @@ python run_all.py --step 5       # Démarrer a l'étape 5
 | Presse marocaine (NLP) | Hespress, Le360, Medias24, L'Économiste | 2020-2024 | Mensuelle |
 
 **master_dataset.csv** contient 180 observations et 11 colonnes :  
-`ipc`, `trends_composite`, `reddit_stress`, `youtube_stress`, `besi`, `ipc_yoy`, `ipc_change`, `stress_level`, `stress_binary`, `besi_trends`, `besi_enrichi`
+`ipc`, `trends_composite`, `reddit_composite`, `youtube_composite`, `besi`, `ipc_yoy`, `ipc_change`, `ipc_mom`, `stress_level`, `besi_trends`, `besi_enrichi`
 
 ---
 

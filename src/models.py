@@ -1535,11 +1535,10 @@ def compare_models_v2(
     print(f"  [INFO] BESI_trends calculé — mean={besi_trends.mean():.3f}  "
           f"std={besi_trends.std():.3f}")
 
-    # Ajouter besi_trends au master_dataset et sauvegarder
+    # Ajouter besi_trends en memoire seulement pour eviter de muter les donnees source
     if "besi_trends" not in master_df.columns:
         master_df["besi_trends"] = besi_trends
-        master_df.to_csv(proc_dir / "master_dataset.csv")
-        print("  [INFO] besi_trends ajouté à master_dataset.csv")
+        print("  [INFO] besi_trends ajoute en memoire pour cette execution")
 
     # ── 3. Filtrer sur la plage d'analyse ────────────────────────────────────
     s_full = series.loc[train_start:test_end].dropna().copy()

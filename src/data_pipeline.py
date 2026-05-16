@@ -32,9 +32,11 @@ DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
 
 # ─── Plage temporelle dynamique ───────────────────────────────────────────────
 START_DATE = "2010-01-01"
-END_DATE   = datetime.today().strftime("%Y-%m-01")   # premier jour du mois courant
+# Date de fin figee par defaut pour garder des resultats reproductibles.
+# On peut la surcharger via BESI_END_DATE=YYYY-MM-DD si necessaire.
+END_DATE   = os.getenv("BESI_END_DATE", "2024-12-01")
 GEO        = "MA"
-TIMEFRAME  = f"{START_DATE[:7]} {datetime.today().strftime('%Y-%m')}"
+TIMEFRAME  = f"{START_DATE[:7]} {END_DATE[:7]}"
 
 # ─── Keywords multilingues : FR + Arabe + Darija ──────────────────────────────
 # "inflation maroc" est l'ANCHOR — inclus dans chaque chunk pytrends pour
@@ -428,7 +430,7 @@ def load_ipc_data(filepath: str | Path | None = None) -> pd.DataFrame:
                 "FP.CPI.TOTL", "wb",
                 country="MA",
                 start=2010,
-                end=datetime.today().year,
+                end=pd.Timestamp(END_DATE).year,
             )
             # pandas_datareader retourne MultiIndex (country, year) → simplifier
             raw_wb = raw_wb.reset_index()

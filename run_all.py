@@ -103,17 +103,25 @@ def step1_data(skip: bool = False) -> tuple[pd.Series, pd.DataFrame]:
     _warn("Lancement data_pipeline.py (peut prendre plusieurs minutes)...")
     try:
         import data_pipeline as dp
-        ipc    = dp.fetch_ipc()["ipc"]
+        ipc_df = dp.load_ipc_data()
         trends = dp.fetch_google_trends()
-        reddit = dp.fetch_reddit()
-        youtube = dp.fetch_youtube()
-        master_df = dp.build_master_dataset(ipc, trends, reddit, youtube)
+        reddit = dp.fetch_reddit_data()
+        youtube = dp.fetch_youtube_data()
+        master_df = dp.build_besi_index(trends, reddit, youtube, ipc_df)
+        ipc = ipc_df["ipc"]
         _ok(f"Pipeline complet : {len(ipc)} mois IPC + {master_df.shape[1]} features")
     except Exception as exc:
-        _err("data_pipeline echec — lecture fichiers existants", exc)
+        _err("data_pipeline echec — tentative lecture fichiers existants", exc)
+        if not ipc_path.exists() or not master_path.exists():
+            missing = [p for p in [ipc_path, master_path] if not p.exists()]
+            raise FileNotFoundError(
+                f"Pipeline data echoue ET fichiers caches introuvables : {missing}\n"
+                "Verifiez votre connexion et les API keys, puis relancez."
+            ) from exc
         df_ipc    = pd.read_csv(ipc_path,    index_col=0, parse_dates=True)
         master_df = pd.read_csv(master_path, index_col=0, parse_dates=True)
         ipc = df_ipc["ipc"]
+        _warn(f"Donnees chargees depuis le cache ({len(ipc)} mois IPC).")
 
     return ipc, master_df
 

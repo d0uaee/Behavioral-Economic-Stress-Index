@@ -45,12 +45,10 @@ def train_prophet(master_df: pd.DataFrame, train_end: str = "2021-12-01") -> dic
     """
     try:
         from prophet import Prophet
-    except ImportError:
-        print("Installation de Prophet...")
-        import subprocess
-        import sys
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "prophet"])
-        from prophet import Prophet
+    except ImportError as exc:
+        raise ImportError(
+            "Prophet n'est pas installe. Installez-le avant execution avec: pip install prophet"
+        ) from exc
 
     # Préparation des données
     df_prophet = master_df[['ipc']].reset_index()
