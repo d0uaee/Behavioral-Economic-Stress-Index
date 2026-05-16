@@ -32,13 +32,19 @@ import sys
 import time
 from pathlib import Path
 
-# ─── Logging ──────────────────────────────────────────────────────────────────
+# --- Logging ------------------------------------------------------------------
+# StreamHandler avec encodage sécurisé (Windows cp1252 ne supporte pas les
+# caractères Unicode de dessin — errors='replace' évite le crash)
+_stream_handler = logging.StreamHandler(sys.stdout)
+_stream_handler.stream = open(sys.stdout.fileno(), mode='w',
+                               encoding='utf-8', errors='replace',
+                               closefd=False, buffering=1)
 logging.basicConfig(
     level   = logging.INFO,
     format  = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     datefmt = "%H:%M:%S",
     handlers=[
-        logging.StreamHandler(sys.stdout),
+        _stream_handler,
         logging.FileHandler("run_v3.log", encoding="utf-8"),
     ],
 )
@@ -50,34 +56,34 @@ SILVER_DIR = ROOT / "data" / "silver"
 GOLD_DIR   = ROOT / "data" / "gold"
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# --- Helpers ------------------------------------------------------------------
 
 def _section(title: str) -> None:
-    bar = "─" * 60
+    bar = "-" * 60
     logger.info(f"\n{bar}\n  {title}\n{bar}")
 
 
 def _ok(msg: str) -> None:
-    logger.info(f"  ✓ {msg}")
+    logger.info(f"  [OK] {msg}")
 
 
 def _warn(msg: str) -> None:
-    logger.warning(f"  ⚠ {msg}")
+    logger.warning(f"  [!!] {msg}")
 
 
 def _fail(step: str, exc: Exception, fatal: bool = True) -> None:
-    logger.error(f"  ✗ {step} ÉCHOUÉ : {exc}")
+    logger.error(f"  [FAIL] {step} : {exc}")
     if fatal:
         sys.exit(1)
 
 
-# ─── Étapes ───────────────────────────────────────────────────────────────────
+# --- Étapes -------------------------------------------------------------------
 
 def step_ingest(skip_existing: bool = True) -> None:
     """Télécharge / vérifie les données Bronze."""
     _section("ÉTAPE 1 — INGESTION Bronze")
 
-    # ── IPC HCP ──────────────────────────────────────────────────────────────
+    # -- IPC HCP --------------------------------------------------------------
     cpi_bronze = BRONZE_DIR / "cpi_hcp_monthly_raw.csv"
     if cpi_bronze.exists() and skip_existing:
         _ok(f"IPC HCP bronze déjà présent : {cpi_bronze}")
@@ -89,7 +95,7 @@ def step_ingest(skip_existing: bool = True) -> None:
             "     Format attendu : colonnes 'date' (YYYY-MM-01) + 'ipc_level'"
         )
 
-    # ── FAO Food Price Index ──────────────────────────────────────────────────
+    # -- FAO Food Price Index --------------------------------------------------
     fao_bronze = BRONZE_DIR / "fao_food_price_raw.csv"
     if fao_bronze.exists() and skip_existing:
         _ok(f"FAO bronze déjà présent : {fao_bronze}")
@@ -103,7 +109,7 @@ def step_ingest(skip_existing: bool = True) -> None:
             _fail("FAO ingest", e, fatal=False)
             _warn("FAO non disponible — colonnes macro FAO seront NaN")
 
-    # ── BAM FX ───────────────────────────────────────────────────────────────
+    # -- BAM FX ---------------------------------------------------------------
     fx_bronze = BRONZE_DIR / "bam_fx_raw.csv"
     if fx_bronze.exists() and skip_existing:
         _ok(f"BAM FX bronze déjà présent : {fx_bronze}")
@@ -117,7 +123,7 @@ def step_ingest(skip_existing: bool = True) -> None:
             _fail("BAM FX ingest", e, fatal=False)
             _warn("FX non disponible — fx_yoy sera NaN")
 
-    # ── Google Trends v3 ─────────────────────────────────────────────────────
+    # -- Google Trends v3 -----------------------------------------------------
     trends_bronze = BRONZE_DIR / "google_trends_raw_v3.csv"
     if trends_bronze.exists() and skip_existing:
         _ok(f"Trends v3 bronze déjà présent : {trends_bronze}")
@@ -138,7 +144,7 @@ def step_transform() -> None:
     """Transforme Bronze → Silver."""
     _section("ÉTAPE 2 — TRANSFORM Bronze → Silver")
 
-    # ── CPI Silver ────────────────────────────────────────────────────────────
+    # -- CPI Silver ------------------------------------------------------------
     # Chercher d'abord le fichier bronze standardisé, puis le fichier brut HCP
     cpi_bronze = BRONZE_DIR / "cpi_hcp_monthly_raw.csv"
     cpi_raw    = BRONZE_DIR / "ipc_hcp_raw.csv"
@@ -169,7 +175,7 @@ def step_transform() -> None:
     except Exception as e:
         _fail("CPI transform", e)
 
-    # ── Trends Silver ─────────────────────────────────────────────────────────
+    # -- Trends Silver ---------------------------------------------------------
     try:
         from src.transforms.trends import transform_trends
         df_tr = transform_trends()
@@ -178,7 +184,7 @@ def step_transform() -> None:
         _fail("Trends transform", e, fatal=False)
         _warn("Trends Silver absent — BESI comportemental indisponible")
 
-    # ── Macro Silver ──────────────────────────────────────────────────────────
+    # -- Macro Silver ----------------------------------------------------------
     try:
         from src.transforms.macro import transform_macro
         df_mac = transform_macro()
@@ -279,15 +285,15 @@ def step_warnings() -> None:
         _fail("Warning metrics", e)
 
 
-# ─── Pipeline complet ──────────────────────────────────────────────────────────
+# --- Pipeline complet ----------------------------------------------------------
 
 def run_all(skip_ingest: bool = False, start_date: str = "2010-01-01") -> None:
     t0 = time.time()
-    logger.info("\n" + "═" * 60)
+    logger.info("\n" + "=" * 60)
     logger.info("  BESI MAROC V3 — PIPELINE COMPLET")
     mode = "FULL (2010-2024)" if start_date <= "2012-01-01" else f"SHORT ({start_date[:4]}-2024)"
     logger.info(f"  Mode données : {mode}")
-    logger.info("═" * 60)
+    logger.info("=" * 60)
 
     if not skip_ingest:
         step_ingest()
@@ -299,10 +305,10 @@ def run_all(skip_ingest: bool = False, start_date: str = "2010-01-01") -> None:
     step_warnings()
 
     elapsed = time.time() - t0
-    logger.info(f"\n{'═'*60}")
+    logger.info(f"\n{'='*60}")
     logger.info(f"  Pipeline V3 terminé en {elapsed:.1f}s")
     logger.info(f"  Résultats → outputs/reports/ et outputs/figures/")
-    logger.info(f"{'═'*60}\n")
+    logger.info(f"{'='*60}\n")
 
     _print_final_checklist()
 
@@ -324,25 +330,25 @@ def _print_final_checklist() -> None:
         "BESI weights (hyb)":     ROOT / "outputs" / "reports" / "besi_v3_hybrid_weights.csv",
     }
 
-    print("\n" + "─" * 55)
+    print("\n" + "-" * 55)
     print("CHECKLIST OUTPUTS V3")
-    print("─" * 55)
+    print("-" * 55)
     all_ok = True
     for name, path in expected.items():
-        status = "✓" if path.exists() else "✗"
+        status = "[OK]" if path.exists() else "[  ]"
         if not path.exists():
             all_ok = False
         print(f"  {status}  {name:<35} {'OK' if path.exists() else 'MANQUANT'}")
 
-    print("─" * 55)
+    print("-" * 55)
     if all_ok:
-        print("  Tous les outputs présents — V3 complet ✓")
+        print("  Tous les outputs presents -- V3 complet [OK]")
     else:
         print("  Certains outputs manquants — vérifier les logs ci-dessus.")
     print()
 
 
-# ─── Point d'entrée ───────────────────────────────────────────────────────────
+# --- Point d'entrée -----------------------------------------------------------
 
 def main() -> None:
     parser = argparse.ArgumentParser(

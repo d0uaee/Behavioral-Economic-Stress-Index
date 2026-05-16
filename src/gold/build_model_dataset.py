@@ -246,7 +246,7 @@ def build_gold_dataset(
     for col in gold.columns:
         n = gold[col].notna().sum()
         pct = 100 * n / len(gold)
-        flag = "" if pct > 80 else " ⚠" if pct > 30 else " ✗"
+        flag = "" if pct > 80 else " [!!]" if pct > 30 else " [X]"
         print(f"{col:<40} {n:>8} {pct:>5.1f}%{flag}")
 
     return gold
