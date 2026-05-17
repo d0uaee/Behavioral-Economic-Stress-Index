@@ -18,6 +18,7 @@ fonde sur les signaux digitaux comportementaux marocains (Google Trends), et l'i
 - SARIMAX + BESI detecte **100% des mois a inflation elevee** en 2022-2024 (recall = 1.00)
 - Rupture structurelle 2022 massivement significative : inflation x11.6 (p < 0.0001)
 - H1 **partiellement validee** : signal comportemental utile pour l'alerte precoce, moins pour la precision point-par-point
+- H2 **REJETEE** : l'ajout du signal macro (FAO + MAD/EUR) degrade la detection — Recall Bloc B chute de 1.00 a 0.375
 
 ---
 
@@ -33,15 +34,15 @@ project/
 |-- data/
 |   |-- bronze/                  <- Donnees brutes (jamais modifiees)
 |   |   |-- cpi_hcp_monthly_raw.csv   <- IPC HCP Maroc 2017-2024
-|   |   |-- fao_food_price_raw.csv    <- [A TELECHARGER] FAO FPI
-|   |   `-- bam_fx_raw.csv            <- [A TELECHARGER] MAD/EUR BAM
+|   |   |-- fao_food_price_raw.csv    <- FAO Food Price Index (telecharge)
+|   |   `-- bam_fx_raw.csv            <- MAD/EUR ECB + interpolation lineaire
 |   |-- silver/                  <- Donnees nettoyees et standardisees
 |   |   |-- cpi_monthly.csv           <- IPC + inflation_yoy + mom
 |   |   |-- google_trends_monthly.csv <- Sous-indices Trends normalises 0-1
 |   |   |-- behavioral_index_pure.csv <- BESI comportemental (Trends seul)
-|   |   `-- macro_signals_monthly.csv <- [MANQUANT] FAO + FX (necessaire pour H2)
+|   |   `-- macro_signals_monthly.csv <- FAO + FX (normalises, 180 mois)
 |   `-- gold/
-|       `-- model_dataset_monthly.csv <- Dataset final (96 mois x 29 colonnes)
+|       `-- model_dataset_monthly.csv <- Dataset final (96 mois x 45 colonnes)
 |
 |-- src/
 |   |-- ingestion/               <- Collecte des donnees
@@ -113,19 +114,16 @@ python make_dashboard.py
 | Reddit r/Morocco | NLP inflation | — | Absent (limite documentee) |
 | YouTube | Commentaires economiques | — | Absent (limite documentee) |
 
-**Gold dataset V3 :** 96 observations (2017-01 a 2024-12), 29 colonnes, zero simulation.
+**Gold dataset V3 :** 96 observations (2017-01 a 2024-12), 45 colonnes, zero simulation.
 
-### Telecharger les donnees manquantes (pour activer H2)
-
-**FAO Food Price Index :**
-1. Aller sur https://www.fao.org/worldfoodsituation/foodpricesindex/en/
-2. Cliquer "Download data" -> CSV/Excel mensuel
-3. Sauvegarder sous `data/bronze/fao_food_price_raw.csv`
-
-**Taux de change MAD/EUR (Bank Al-Maghrib) :**
-1. Aller sur https://www.bkam.ma/Statistiques/Taux-de-change
-2. Selectionner MAD/EUR, frequence mensuelle, 2010-2024
-3. Sauvegarder sous `data/bronze/bam_fx_raw.csv`
+| Source | Variable | Periode | Statut |
+|---|---|---|---|
+| HCP Maroc (manuel) | IPC mensuel base 2017=100 | 2017-2024 | OK |
+| Google Trends (pytrends) | 7 mots-cles, geo=MA | 2010-2024 | OK |
+| FAO Food Price Index | 6 sous-indices alimentaires mondiaux | 2010-2024 | OK |
+| ECB / interpolation lineaire | Taux MAD/EUR mensuel | 2010-2024 | OK |
+| Reddit r/Morocco | NLP inflation | -- | Absent (limite documentee) |
+| YouTube | Commentaires economiques | -- | Absent (limite documentee) |
 
 ---
 
@@ -153,7 +151,8 @@ L'IPC ne peut pas etre une feature qui predit l'IPC — c'est la cible.
 |---|---|---|---|---|
 | Naif (persistance) | 1.609 | 1.200 | 1.06% | — |
 | SARIMA(1,1,1)(1,0,1)[12] | 1.923 | 1.537 | 1.38% | 64.85 |
-| **SARIMAX + BESI behavioral** | **1.891** | **1.523** | **1.36%** | **57.09** |
+| **SARIMAX + BESI behavioral** | **1.891** | **1.522** | **1.36%** | **57.09** |
+| SARIMAX + Hybrid macro | 1.997 | 1.576 | 1.42% | — |
 
 **Blocs d'evaluation :**
 - **Bloc A** (COVID 2020-2021) : train 2017-2019 | 24 mois de test
@@ -214,11 +213,19 @@ detecteur de regime, pas comme predicteur causal lineaire.
 le fit statistique et detecte 90% des episodes d'inflation avec 1 mois d'avance.
 L'AUC < 0.65 est penalisee par le Bloc A (choc COVID exogene non capture).
 
-### H2 : hybrid_macro_index ameliore la detection
+### H2 : hybrid_macro_index ameliore la detection (delta AUC > 0.05)
 
-**Verdict H2 : non testable.** Donnees FAO et BAM/FX non disponibles
--> `hybrid_macro_index` absent. Telecharger les donnees (voir section ci-dessus)
-pour activer cette comparaison.
+| Critere | Behavioral | Hybrid | Delta | Statut |
+|---|---|---|---|---|
+| AUC globale | 0.352 | 0.451 | +0.099 | Favorable hybrid |
+| Recall global | **0.900** | 0.625 | -0.275 | Defavorable hybrid |
+| Recall Bloc B | **1.000** | 0.375 | **-0.625** | **REJETE** |
+| RMSE global | **1.891** | 1.997 | +0.106 | Defavorable hybrid |
+
+**Verdict H2 : REJETEE.** Le signal macro (FAO + MAD/EUR) n'ameliore pas la detection.
+Sur la periode cle (inflation 2022-2024), le hybrid chute de Recall=1.00 a Recall=0.375.
+Interpretation : les indices FAO mondiaux ne capturent pas la specificite locale marocaine ;
+les comportements de recherche Google sont plus directement relies au stress des menages marocains.
 
 ---
 
@@ -258,7 +265,7 @@ pour activer cette comparaison.
 | Limite | Impact | Recommandation |
 |---|---|---|
 | IPC HCP disponible depuis 2017 seulement | Pas de Bloc A 2010-2016, poids Lasso non calibres | Recuperer archives HCP pre-2017 |
-| FAO FPI non telecharge | H2 non testable, hybrid_macro_index absent | Telecharger sur fao.org |
+| MAD/EUR construit par interpolation | Donnees BAM non disponibles en open data | Recuperer les donnees officielles BAM |
 | Reddit/YouTube absents | BESI = Trends seul (pas composite multi-sources) | Documenter comme limite methodologique |
 | Granger non significatif | Relation non-lineaire non capturee par SARIMA | Explorer modeles a seuil (TAR, STAR) |
 

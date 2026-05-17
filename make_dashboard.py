@@ -1,5 +1,5 @@
 """
-make_dashboard.py — Figure de synthese finale BESI V3
+make_dashboard.py — Figure de synthese finale BESI V3 (avec H2)
 Genere outputs/figures/dashboard_besi_v3_final.png
 """
 import warnings
@@ -29,12 +29,13 @@ C_BESI = '#8e44ad'
 C_NAI  = '#95a5a6'
 C_SAR  = '#3498db'
 C_SAX  = '#e74c3c'
+C_HYB  = '#27ae60'   # vert pour hybrid
 
 plt.rcParams.update({'font.size': 9, 'axes.grid': True, 'grid.alpha': 0.25})
 
 fig = plt.figure(figsize=(18, 12))
 fig.patch.set_facecolor('#fafafa')
-gs  = gridspec.GridSpec(3, 3, figure=fig, hspace=0.48, wspace=0.36)
+gs  = gridspec.GridSpec(3, 3, figure=fig, hspace=0.50, wspace=0.36)
 
 # ── Panel 1 (top, spans 2 cols) : IPC + Inflation + rupture ──────────────────
 ax1  = fig.add_subplot(gs[0, :2])
@@ -70,9 +71,9 @@ if 'behavioral_index_pure' in df.columns and 'inflation_yoy' in df.columns:
     besi = df['behavioral_index_pure'].dropna()
     yoy2 = df['inflation_yoy'].reindex(besi.index)
     mask = ~np.isnan(yoy2.values)
-    sc   = ax2.scatter(besi.values[mask], yoy2.values[mask],
-                       c=yoy2.values[mask], cmap='RdYlGn_r',
-                       alpha=0.7, s=35, vmin=-2, vmax=10)
+    ax2.scatter(besi.values[mask], yoy2.values[mask],
+                c=yoy2.values[mask], cmap='RdYlGn_r',
+                alpha=0.7, s=35, vmin=-2, vmax=10)
     z  = np.polyfit(besi.values[mask], yoy2.values[mask], 1)
     xf = np.linspace(besi.min(), besi.max(), 50)
     ax2.plot(xf, np.polyval(z, xf), 'k--', lw=1.3, alpha=0.65, label='r=+0.54*')
@@ -83,28 +84,34 @@ if 'behavioral_index_pure' in df.columns and 'inflation_yoy' in df.columns:
     ax2.legend(fontsize=7)
     ax2.tick_params(labelsize=8)
 
-# ── Panel 3 (mid-left) : Backtest RMSE par bloc ──────────────────────────────
+# ── Panel 3 (mid-left) : Backtest RMSE par bloc — 4 modeles ──────────────────
 ax3 = fig.add_subplot(gs[1, 0])
-model_colors = {'naif': C_NAI, 'sarima': C_SAR, 'sarimax_behavioral': C_SAX}
-model_labels  = {'naif': 'Naif', 'sarima': 'SARIMA', 'sarimax_behavioral': 'SARIMAX+BESI'}
+model_order  = ['naif', 'sarima', 'sarimax_behavioral', 'sarimax_hybrid']
+model_colors = {'naif': C_NAI, 'sarima': C_SAR,
+                'sarimax_behavioral': C_SAX, 'sarimax_hybrid': C_HYB}
+model_labels = {'naif': 'Naif', 'sarima': 'SARIMA',
+                'sarimax_behavioral': 'SARIMAX+BESI', 'sarimax_hybrid': 'SARIMAX+Hybrid'}
 blocs = sorted(bt['bloc'].unique())
 x3    = np.arange(len(blocs))
-w3    = 0.25
-for i, (model, grp) in enumerate(bt.groupby('model')):
+w3    = 0.20
+for i, model in enumerate(model_order):
+    grp  = bt[bt['model'] == model]
+    if grp.empty:
+        continue
     vals  = grp.set_index('bloc')['rmse'].reindex(blocs).values
     bars3 = ax3.bar(x3 + i*w3, vals, w3,
-                    label=model_labels.get(model, model),
-                    color=model_colors.get(model, 'gray'), alpha=0.85)
+                    label=model_labels[model],
+                    color=model_colors[model], alpha=0.85)
     for bar, v in zip(bars3, vals):
         if not np.isnan(v):
             ax3.text(bar.get_x()+bar.get_width()/2, v+0.02,
-                     f'{v:.2f}', ha='center', va='bottom', fontsize=6.5)
-ax3.set_xticks(x3 + w3)
+                     f'{v:.2f}', ha='center', va='bottom', fontsize=6)
+ax3.set_xticks(x3 + w3*1.5)
 ax3.set_xticklabels([f'Bloc {b}' for b in blocs], fontsize=9)
-ax3.set_title('RMSE Backtest walk-forward\n1-step-ahead', fontsize=10, fontweight='bold')
+ax3.set_title('RMSE Backtest walk-forward\n1-step-ahead (4 modeles)', fontsize=10, fontweight='bold')
 ax3.set_ylabel('RMSE (pts IPC)', fontsize=9)
-ax3.legend(fontsize=7)
-ax3.set_ylim(0, 2.6)
+ax3.legend(fontsize=6.5, loc='upper right')
+ax3.set_ylim(0, 2.7)
 ax3.tick_params(labelsize=8)
 
 # ── Panel 4 (mid-center) : AIC SARIMA vs SARIMAX ─────────────────────────────
@@ -123,27 +130,37 @@ ax4.set_ylabel('AIC (Train A)', fontsize=9)
 ax4.set_title('AIC In-Sample (Train A)\nFaveur SARIMAX+BESI', fontsize=10, fontweight='bold')
 ax4.tick_params(labelsize=9)
 
-# ── Panel 5 (mid-right) : Early warning par bloc ─────────────────────────────
+# ── Panel 5 (mid-right) : Recall + AUC : behavioral vs hybrid par bloc ───────
 ax5 = fig.add_subplot(gs[1, 2])
-metric_cols  = ['auc', 'f1', 'precision', 'recall']
-metric_labs  = ['AUC', 'F1', 'Precision', 'Recall']
-w5 = 0.35
-x5 = np.arange(len(metric_cols))
-wm_a = wm[wm['scope'] == 'test_A']
-wm_b = wm[wm['scope'] == 'test_B']
-if not wm_a.empty:
-    va = [float(wm_a[c].iloc[0]) for c in metric_cols]
-    ax5.bar(x5 - w5/2, va, w5, label='Bloc A (COVID)', color=C_PRE, alpha=0.8)
-if not wm_b.empty:
-    vb = [float(wm_b[c].iloc[0]) for c in metric_cols]
-    bars5 = ax5.bar(x5 + w5/2, vb, w5, label='Bloc B (Inflation)', color=C_POST, alpha=0.8)
-    for xi, v in zip(x5 + w5/2, vb):
+# Construire tableau : signal x (bloc A recall, bloc A AUC, bloc B recall, bloc B AUC)
+signals  = ['behavioral', 'hybrid']
+sig_cols  = {'behavioral': C_SAX, 'hybrid': C_HYB}
+sig_labs  = {'behavioral': 'BESI behavioral', 'hybrid': 'Hybrid macro'}
+x5_cats  = ['Recall\nBloc A', 'AUC\nBloc A', 'Recall\nBloc B', 'AUC\nBloc B']
+x5       = np.arange(len(x5_cats))
+w5       = 0.35
+for si, sig in enumerate(signals):
+    row_a = wm[(wm['scope'] == 'test_A') & (wm['signal'] == sig)]
+    row_b = wm[(wm['scope'] == 'test_B') & (wm['signal'] == sig)]
+    if row_a.empty or row_b.empty:
+        continue
+    vals = [
+        float(row_a['recall'].iloc[0]),
+        float(row_a['auc'].iloc[0]),
+        float(row_b['recall'].iloc[0]),
+        float(row_b['auc'].iloc[0]),
+    ]
+    offset = (si - 0.5) * w5
+    bars5 = ax5.bar(x5 + offset, vals, w5,
+                    label=sig_labs[sig], color=sig_cols[sig], alpha=0.82)
+    for xi, v in zip(x5 + offset, vals):
         ax5.text(xi, v+0.01, f'{v:.2f}', ha='center', va='bottom', fontsize=7)
-ax5.axhline(0.65, color='orange', ls=':', lw=1.2, label='Seuil H1')
-ax5.set_xticks(x5); ax5.set_xticklabels(metric_labs, fontsize=9)
-ax5.set_ylim(0, 1.18)
-ax5.set_title('Early Warning\nBloc B : Recall=1.00 (100% eps. detectes)', fontsize=10, fontweight='bold')
-ax5.legend(fontsize=7, loc='upper right')
+ax5.axhline(0.80, color='orange', ls=':', lw=1.2, label='Seuil Recall 0.80')
+ax5.set_xticks(x5)
+ax5.set_xticklabels(x5_cats, fontsize=8)
+ax5.set_ylim(0, 1.22)
+ax5.set_title('Early Warning — Behavioral vs Hybrid\nH2: behavioral > hybrid (Recall Bloc B)', fontsize=10, fontweight='bold')
+ax5.legend(fontsize=7, loc='upper left')
 ax5.tick_params(labelsize=8)
 
 # ── Panel 6 (bottom, spans 3) : Predictions backtest timeline ────────────────
@@ -174,14 +191,15 @@ try:
                 ps = float(f.forecast(1).iloc[0])
             except Exception:
                 ps = np.nan
-            # SARIMAX
+            # SARIMAX behavioral
             psx = np.nan
             if exog_col in df.columns:
-                exog_hist = df[exog_col].reindex(hist.index).fillna(method='ffill')
+                exog_hist = df[exog_col].reindex(hist.index).ffill()
                 exog_fore = df.loc[t_idx, exog_col]
                 if not pd.isna(exog_fore):
                     try:
-                        mx  = SM(hist, exog=exog_hist, order=(1,1,1), seasonal_order=(1,0,1,12),
+                        mx  = SM(hist, exog=exog_hist, order=(1,1,1),
+                                 seasonal_order=(1,0,1,12),
                                  enforce_stationarity=False, enforce_invertibility=False)
                         fx  = mx.fit(disp=False)
                         psx = float(fx.forecast(1, exog=[[exog_fore]]).iloc[0])
@@ -194,15 +212,15 @@ try:
 
     ax6.plot(all_dates, all_act, 'o-', color=C_IPC, lw=2.2, ms=4, label='IPC reel', zorder=5)
     ax6.plot(all_dates, all_sar, '--',  color=C_SAR, lw=1.4, label='SARIMA', alpha=0.85)
-    ax6.plot(all_dates, all_sax, '--',  color=C_SAX, lw=1.4, label='SARIMAX+BESI', alpha=0.85)
+    ax6.plot(all_dates, all_sax, '--',  color=C_SAX, lw=1.4, label='SARIMAX+BESI behavioral', alpha=0.85)
     ax6.axvline(BREAK, color='black', ls='--', lw=1.2, alpha=0.6)
     ax6.axvspan(pd.Timestamp('2020-01-01'), pd.Timestamp('2022-01-01'),
-                alpha=0.06, color='blue', label='Test A')
+                alpha=0.06, color='blue', label='Test A (COVID)')
     ax6.axvspan(pd.Timestamp('2022-01-01'), pd.Timestamp('2025-01-01'),
-                alpha=0.06, color='red',  label='Test B')
+                alpha=0.06, color='red',  label='Test B (Inflation)')
     ax6.set_ylabel('IPC (base 2017=100)', fontsize=9)
     ax6.set_title('Predictions 1-step-ahead — Walk-forward backtest\n'
-                  'Apprentissage expansif : chaque prediction entraine sur tout l\'historique disponible',
+                  'Apprentissage expansif | RMSE global: SARIMA=1.923 | SARIMAX+BESI=1.891 | Hybrid=1.997',
                   fontsize=10, fontweight='bold')
     ax6.legend(fontsize=8, loc='upper left', ncol=5)
     ax6.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
@@ -214,8 +232,9 @@ except Exception as e:
 
 # ── Titre et sauvegarde ──────────────────────────────────────────────────────
 fig.suptitle('BESI MAROC V3 — Behavioral Economic Stress Index\n'
-             'Rupture 2022 | Backtest SARIMA vs SARIMAX+BESI | Alerte precoce',
-             fontsize=13, fontweight='bold', y=0.995)
+             'H1: partiellement validee (AIC -7.77, Recall=0.90) | '
+             'H2: REJETEE (Hybrid pire que behavioral sur Bloc B)',
+             fontsize=12, fontweight='bold', y=0.998)
 
 out = FIG_DIR / 'dashboard_besi_v3_final.png'
 plt.savefig(out, bbox_inches='tight', dpi=150, facecolor='#fafafa')

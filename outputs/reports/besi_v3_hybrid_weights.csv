@@ -1,0 +1,6 @@
+feature,weight,method,train_end
+behavioral_pure,0.0,lasso,2018-12-01
+fao_food_yoy,0.0,lasso,2018-12-01
+fao_cereals_yoy,0.0430431451685788,lasso,2018-12-01
+fao_oils_yoy,0.73079744503895,lasso,2018-12-01
+fx_yoy,0.22615940979247115,lasso,2018-12-01
