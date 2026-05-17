@@ -1,0 +1,5 @@
+feature,weight,method,train_end
+trends_prix_alim,0.25,equal,2018-12-01
+trends_inflation,0.25,equal,2018-12-01
+trends_carburant,0.25,equal,2018-12-01
+trends_subvention,0.25,equal,2018-12-01

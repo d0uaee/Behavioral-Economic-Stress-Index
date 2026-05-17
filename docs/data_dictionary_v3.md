@@ -1,194 +1,201 @@
-# Dictionnaire de Données — BESI Maroc V3
+# Data Dictionary — BESI V3 Gold Dataset
 
-Gold dataset : `data/gold/model_dataset_monthly.csv`  
-Période : 2010-01-01 → 2024-12-01 (fréquence mensuelle, `freq=MS`)  
-Généré par : `src/gold/build_model_dataset.py`
+Fichier documenté : `data/gold/model_dataset_monthly.csv`
 
----
+Fréquence : mensuelle (`MS`)  
+Plage cible du projet : `2010-01-01` → `2024-12-01`
 
-## Règle fondamentale as-of-date
+Ce document décrit toutes les colonnes attendues dans le Gold dataset V3, leur type, leur source et leur rôle analytique.
 
-> Pour prédire `target_*_t1` (valeur au mois `t+1`), seules les features
-> disponibles **avant la publication HCP du mois `t`** sont utilisables.
-> La publication HCP intervient environ **J+20** après la fin du mois.
->
-> **Colonnes contemporaines interdites comme features :**
-> `ipc_level`, `inflation_yoy`, `inflation_mom`, `inflation_regime`
->
-> **Utiliser uniquement leurs versions laggées :** `_lag1`, `_lag2`, `_lag3`
+## Règle As-Of-Date
 
----
+Objectif du Gold dataset :
+- prédire `IPC(t+1)` ou `inflation_yoy(t+1)`
+- détecter le régime d'inflation du mois suivant
 
-## 1. Identifiant temporel
+Règle fondamentale :
+- les colonnes contemporaines `ipc_level`, `inflation_mom`, `inflation_yoy` existent dans le dataset comme vérité terrain et contexte analytique
+- pour la modélisation prédictive, **seuls les lags >= 1 de l'IPC sont autorisés comme features**
+- `ipc_level_lag0` est interdit comme feature car trop proche de la cible
 
-| Colonne | Type | Description |
-|---|---|---|
-| `month` | DatetimeIndex (MS) | Index du dataset — 1er jour du mois |
+En pratique :
+- `ipc_level`, `inflation_mom`, `inflation_yoy` = colonnes de référence / cibles / diagnostic
+- `ipc_level_lag1`, `inflation_yoy_lag1`, etc. = colonnes autorisées côté features
 
 ---
 
-## 2. CPI Silver — Source HCP
+## 1. Identifiant
 
-> Source : Haut-Commissariat au Plan (hcp.ma), indice base 2017=100.
-> Bronze : `data/bronze/cpi_hcp_monthly_raw.csv`
-> Silver : `data/silver/cpi_monthly.csv`
-
-| Colonne | Type | Unité | Description |
+| Nom | Type | Source | Description |
 |---|---|---|---|
-| `ipc_level` | float | base 2017=100 | Indice des prix à la consommation brut |
-| `inflation_mom` | float | % | Variation mensuelle : `(IPC_t / IPC_{t-1} - 1) × 100` |
-| `inflation_yoy` | float | % | Variation annuelle : `(IPC_t / IPC_{t-12} - 1) × 100` — NaN pour les 12 premiers mois |
-| `inflation_regime` | float | 0 ou 1 | 1 si `inflation_yoy >= 2%` (seuil Bank Al-Maghrib) — NaN si `inflation_yoy` est NaN |
-| `publication_date` | date | — | Date estimée de publication HCP : fin du mois + 20 jours |
-
-⚠️ `inflation_yoy` et `inflation_mom` sont **NaN** pour les 12/1 premiers mois (pas d'historique suffisant).
+| `month` | `DatetimeIndex[MS]` | Gold | Identifiant temporel mensuel du dataset. Une ligne = un mois. |
 
 ---
 
-## 3. Trends Silver — Google Trends Maroc
+## 2. IPC Silver
 
-> Source : pytrends, `geo='MA'`, agrégé mensuellement.
-> Mots-clés en arabe et français (voir `src/ingestion/google_trends_v3.py`).
-> Bronze : `data/bronze/google_trends_raw_v3.csv`
-> Silver : `data/silver/google_trends_monthly.csv`
-> Normalisation : min-max 0-1 indépendante pour chaque sous-indice.
+Source primaire : HCP Maroc (base 2017=100)
 
-| Colonne | Type | Plage | Description |
+| Nom | Type | Source | Description |
 |---|---|---|---|
-| `trends_prix_alim` | float | 0–1 | Sous-indice "prix alimentaires" (huile, hausse prix, légumes, arabe) |
-| `trends_inflation` | float | 0–1 | Sous-indice "inflation" ("inflation maroc", التضخم في المغرب) |
-| `trends_carburant` | float | 0–1 | Sous-indice "carburant" ("prix carburant maroc", ارتفاع الأسعار) |
-| `trends_subvention` | float | 0–1 | Sous-indice "subventions" ("subvention maroc") — faible signal avant 2021 |
-| `trends_composite` | float | 0–1 | Moyenne simple des 4 sous-indices disponibles |
+| `ipc_level` | `float` | `silver/cpi_monthly.csv` | Niveau brut de l'IPC mensuel (base 2017=100). |
+| `inflation_mom` | `float` | `silver/cpi_monthly.csv` | Variation mensuelle de l'IPC en pourcentage (`MoM`). |
+| `inflation_yoy` | `float` | `silver/cpi_monthly.csv` | Variation annuelle de l'IPC en pourcentage (`YoY`). |
+| `publication_date` | `date` ou `str` | `silver/cpi_monthly.csv` | Date estimée de publication officielle HCP pour le mois courant (approx. fin de mois + 20 jours). |
 
 ---
 
-## 4. Macro Silver — FAO FPI + BAM FX
+## 3. Trends Silver
 
-> Sources : FAO Food Price Index (fao.org) + Bank Al-Maghrib (taux MAD/EUR).
-> Bronze : `data/bronze/fao_food_price_raw.csv`, `data/bronze/bam_fx_raw.csv`
-> Silver : `data/silver/macro_signals_monthly.csv`
+Sous-indices thématiques Google Trends, normalisés individuellement sur `[0, 1]`.
 
-| Colonne | Type | Unité | Description |
+| Nom | Type | Source | Description |
 |---|---|---|---|
-| `fao_food_index` | float | base 2014-2016=100 | Indice FAO des prix alimentaires mondial |
-| `fao_cereals_index` | float | base 2014-2016=100 | Sous-indice céréales FAO (blé, maïs, riz) |
-| `fao_oils_index` | float | base 2014-2016=100 | Sous-indice huiles FAO |
-| `fao_food_yoy` | float | % | Variation annuelle FAO global |
-| `fao_oils_yoy` | float | % | Variation annuelle huiles — pertinent pour le panier HCP Maroc |
-| `mad_eur` | float | MAD/€ | Taux de change Dirham / Euro |
-| `fx_yoy` | float | % | Dépréciation annuelle MAD/EUR : `(MAD_t / MAD_{t-12} - 1) × 100` |
-
-**Justification économique :**
-- Maroc importe ~60% de ses céréales → `fao_cereals_index` est un driver direct de l'IPC
-- Panier HCP contient huile d'olive + tournesol → `fao_oils_index`
-- Zone Euro = principal partenaire commercial → `fx_yoy` impacte le coût des importations
+| `trends_prix_alim` | `float` | `silver/google_trends_monthly.csv` | Intensité de recherche liée aux prix alimentaires (`prix huile`, `hausse prix`, etc.). |
+| `trends_inflation` | `float` | `silver/google_trends_monthly.csv` | Intensité de recherche liée à l'inflation générale (`inflation maroc`, arabe). |
+| `trends_carburant` | `float` | `silver/google_trends_monthly.csv` | Intensité de recherche liée au carburant et à l'énergie. |
+| `trends_subvention` | `float` | `silver/google_trends_monthly.csv` | Intensité de recherche liée aux subventions / politique de prix. |
+| `trends_composite` | `float` | `silver/google_trends_monthly.csv` | Moyenne simple des sous-indices thématiques Trends disponibles. |
 
 ---
 
-## 5. Indices BESI v3
+## 4. Macro Silver
 
-> Générés par : `src/features/indexes.py`
-> Silver : `data/silver/behavioral_index_pure.csv`, `data/silver/hybrid_macro_index.csv`
-> Poids calibrés par LassoCV sur la période train 2010–2018.
-> **Règle absolue : ipc_level, inflation_yoy, inflation_mom sont interdits dans les deux indices.**
+Signaux macroéconomiques réels alignés au mois.
 
-| Colonne | Type | Plage | Description |
+| Nom | Type | Source | Description |
 |---|---|---|---|
-| `behavioral_index_pure` | float | 0–1 | Trends uniquement — 100% comportemental, 0% IPC, poids LassoCV |
-| `hybrid_macro_index` | float | 0–1 | Trends + FAO FPI + MAD/EUR, poids LassoCV |
+| `fao_food_index` | `float` | `silver/macro_signals_monthly.csv` | FAO Food Price Index global (base FAO 2014-2016=100). |
+| `fao_food_yoy` | `float` | `silver/macro_signals_monthly.csv` | Variation annuelle (%) du FAO Food Price Index global. |
+| `fao_oils_yoy` | `float` | `silver/macro_signals_monthly.csv` | Variation annuelle (%) du sous-indice FAO des huiles. |
+| `mad_eur` | `float` | `silver/macro_signals_monthly.csv` | Taux de change MAD/EUR mensuel. |
+| `fx_yoy` | `float` | `silver/macro_signals_monthly.csv` | Variation annuelle (%) du taux MAD/EUR. |
 
 ---
 
-## 6. Lags explicites
+## 5. Indices BESI V3
 
-> Format de nommage : `{feature}_lag{n}` où `n` = nombre de mois de décalage.
-> Créés par `build_gold_dataset()` à partir de la configuration `FEATURE_LAGS`.
+Deux indices séparés, sans composante IPC directe.
 
-| Pattern | Lags | Disponibilité |
-|---|---|---|
-| `behavioral_index_pure_lag{1,2}` | 1, 2 | lag1 = BESI du mois précédent |
-| `hybrid_macro_index_lag{1,2}` | 1, 2 | lag1 = hybrid du mois précédent |
-| `trends_prix_alim_lag1` | 1 | Trends alimentaires du mois précédent |
-| `trends_inflation_lag1` | 1 | Trends inflation du mois précédent |
-| `trends_carburant_lag1` | 1 | Trends carburant du mois précédent |
-| `trends_composite_lag1` | 1 | Composite Trends du mois précédent |
-| `fao_food_index_lag1` | 1 | FAO global du mois précédent |
-| `fao_food_yoy_lag1` | 1 | FAO YoY du mois précédent |
-| `fao_oils_yoy_lag1` | 1 | FAO huiles YoY du mois précédent |
-| `mad_eur_lag1` | 1 | MAD/EUR du mois précédent |
-| `fx_yoy_lag1` | 1 | Dépréciation FX du mois précédent |
-| `ipc_level_lag{1,2,3}` | 1, 2, 3 | **Seule forme légitime de l'IPC comme feature** |
-| `inflation_yoy_lag{1,2}` | 1, 2 | YoY historique |
-| `inflation_mom_lag{1,2}` | 1, 2 | MoM historique |
-
----
-
-## 7. Cibles (variables à prédire)
-
-> Toutes les cibles sont décalées d'un mois en avant (`shift(-1)`).
-> Le **dernier mois du dataset est toujours NaN** pour toutes les cibles.
-
-| Colonne | Type | Tâche | Description |
+| Nom | Type | Source | Description |
 |---|---|---|---|
-| `target_inflation_yoy_t1` | float | Régression | `inflation_yoy` du mois suivant — en % |
-| `target_high_inflation_regime_t1` | float | Classification | 1.0 si `inflation_yoy(t+1) >= 2%`, 0.0 sinon, **NaN si inconnu** |
-| `target_ipc_level_t1` | float | Régression | `ipc_level` du mois suivant |
+| `behavioral_index_pure` | `float` | `silver/behavioral_index_pure.csv` | Indice comportemental pur construit uniquement à partir des signaux Google Trends. Normalisé sur `[0, 1]`. Poids calibrés via `LassoCV` ou fallback simple. |
+| `hybrid_macro_index` | `float` | `silver/hybrid_macro_index.csv` | Indice hybride combinant signaux comportementaux + macro (FAO, FX). Normalisé sur `[0, 1]`. |
+
+---
+
+## 6. Lags Explicites
+
+Convention :
+- suffixe `_lag1` = valeur du mois précédent
+- suffixe `_lag2` = valeur décalée de 2 mois
+- etc.
+
+### 6.1 Lags des indices BESI
+
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `behavioral_index_pure_lag1` | `float` | Gold dérivé | Valeur de `behavioral_index_pure` décalée de 1 mois. |
+| `behavioral_index_pure_lag2` | `float` | Gold dérivé | Valeur de `behavioral_index_pure` décalée de 2 mois. |
+| `hybrid_macro_index_lag1` | `float` | Gold dérivé | Valeur de `hybrid_macro_index` décalée de 1 mois. |
+| `hybrid_macro_index_lag2` | `float` | Gold dérivé | Valeur de `hybrid_macro_index` décalée de 2 mois. |
+
+### 6.2 Lags des Trends
+
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `trends_prix_alim_lag1` | `float` | Gold dérivé | Sous-indice alimentaire Trends décalé de 1 mois. |
+| `trends_inflation_lag1` | `float` | Gold dérivé | Sous-indice inflation Trends décalé de 1 mois. |
+| `trends_carburant_lag1` | `float` | Gold dérivé | Sous-indice carburant Trends décalé de 1 mois. |
+| `trends_composite_lag1` | `float` | Gold dérivé | Composite Trends décalé de 1 mois. |
+
+### 6.3 Lags macro
+
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `fao_food_index_lag1` | `float` | Gold dérivé | FAO Food Index décalé de 1 mois. |
+| `fao_food_yoy_lag1` | `float` | Gold dérivé | Variation annuelle du FAO Food Index décalée de 1 mois. |
+| `fao_oils_yoy_lag1` | `float` | Gold dérivé | Variation annuelle du sous-indice FAO huiles décalée de 1 mois. |
+| `mad_eur_lag1` | `float` | Gold dérivé | Taux MAD/EUR décalé de 1 mois. |
+| `fx_yoy_lag1` | `float` | Gold dérivé | Variation annuelle du taux MAD/EUR décalée de 1 mois. |
+
+### 6.4 Lags IPC historiques
+
+Ces colonnes sont les seules versions de l'IPC autorisées comme features prédictives.
+
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `ipc_level_lag1` | `float` | Gold dérivé | IPC du mois `t-1`. |
+| `ipc_level_lag2` | `float` | Gold dérivé | IPC du mois `t-2`. |
+| `ipc_level_lag3` | `float` | Gold dérivé | IPC du mois `t-3`. |
+| `inflation_yoy_lag1` | `float` | Gold dérivé | Inflation YoY du mois `t-1`. |
+| `inflation_yoy_lag2` | `float` | Gold dérivé | Inflation YoY du mois `t-2`. |
+| `inflation_mom_lag1` | `float` | Gold dérivé | Inflation MoM du mois `t-1`. |
+| `inflation_mom_lag2` | `float` | Gold dérivé | Inflation MoM du mois `t-2`. |
+
+---
+
+## 7. Cibles
+
+Toutes les cibles sont décalées d'un mois (`t+1`) pour prédiction.
+
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `target_inflation_yoy_t1` | `float` | Gold dérivé | Inflation YoY du mois suivant. Utilisée pour la régression. |
+| `target_high_inflation_regime_t1` | `float` ou `int` | Gold dérivé | Variable binaire : `1` si `inflation_yoy(t+1) >= 2%`, sinon `0`. Utilisée pour la classification du régime d'inflation. |
+| `target_ipc_level_t1` | `float` | Gold dérivé | Niveau d'IPC du mois suivant. |
 
 ---
 
 ## 8. Métadonnées
 
-| Colonne | Type | Description |
-|---|---|---|
-| `as_of_date` | str (YYYY-MM-DD) | Dernier jour du mois courant — date à laquelle les features sont disponibles |
-| `feature_available_at` | str (YYYY-MM-DD) | `as_of_date + 1 jour` — date minimale pour utiliser cette ligne en prédiction |
-| `split_label` | str | Label de partition (voir ci-dessous) |
-
-### Split labels
-
-| Valeur | Période | Rôle |
-|---|---|---|
-| `train_A` | 2010-01 → 2017-12 | Entraînement bloc A |
-| `test_A`  | 2018-01 → 2019-12 | Test bloc A (24 mois) |
-| `train_B` | 2010-01 → 2019-12 | Entraînement bloc B (expanding) |
-| `test_B`  | 2020-01 → 2021-12 | Test bloc B (COVID) |
-| `train_C` | 2010-01 → 2021-12 | Entraînement bloc C (expanding) |
-| `test_C`  | 2022-01 → 2024-12 | Test bloc C (choc inflationniste) |
-| `unused`  | hors fenêtres | Non utilisé dans l'évaluation |
-
-Une même date peut apparaître dans plusieurs labels (ex: `train_B|train_C`).
+| Nom | Type | Source | Description |
+|---|---|---|---|
+| `as_of_date` | `date` ou `str` | Gold dérivé | Fin du mois courant. Sert de repère de disponibilité logique du jeu de données. |
+| `feature_available_at` | `date` ou `str` | Gold dérivé | Date à partir de laquelle la ligne peut être utilisée dans la logique de prévision (lendemain de `as_of_date`). |
+| `split_label` | `str` | Gold dérivé | Appartenance aux blocs d'évaluation : `train_A`, `test_A`, `train_B`, `test_B`, `train_C`, `test_C`, ou `unused`. |
 
 ---
 
-## 9. Features recommandées pour la modélisation
+## 9. Colonnes Potentiellement Partielles
 
-**Pour SARIMA/SARIMAX :**
-```python
-TARGET  = "ipc_level"           # série principale
-EXOG_BEH = "behavioral_index_pure_lag1"
-EXOG_HYB = "hybrid_macro_index_lag1"
-```
+Selon l'état réel du pipeline et la disponibilité des sources, certaines colonnes peuvent être absentes ou fortement incomplètes :
 
-**Pour la classification (régime inflation) :**
-```python
-TARGET = "target_high_inflation_regime_t1"
-FEATURES = [
-    "behavioral_index_pure_lag1", "hybrid_macro_index_lag1",
-    "ipc_level_lag1", "inflation_yoy_lag1", "inflation_mom_lag1",
-    "fao_food_yoy_lag1", "fx_yoy_lag1",
-    "trends_prix_alim_lag1", "trends_inflation_lag1",
-]
-```
+| Nom | Cause possible |
+|---|---|
+| `trends_carburant` / `trends_subvention` | keywords non présents dans la source Trends brute |
+| `hybrid_macro_index` | macro silver absent (FAO / FX non disponibles) |
+| `fao_*`, `mad_eur`, `fx_yoy` | ingestion macro non exécutée ou source indisponible |
 
-**Colonnes à NE JAMAIS utiliser comme features :**
-```python
-FORBIDDEN = [
-    "ipc_level",        # contemporain = quasi-cible
-    "inflation_yoy",    # contemporain = quasi-cible
-    "inflation_mom",    # contemporain, publication J+20
-    "inflation_regime", # dérivé de inflation_yoy courant
-    "ipc_change",       # dérivée directe de la cible
-    "target_*",         # les cibles elles-mêmes
-]
-```
+Ces cas doivent être explicitement contrôlés avant modélisation finale.
+
+---
+
+## 10. Interdictions Méthodologiques
+
+Colonnes à ne **pas** utiliser comme features directes pour prédire `t+1` :
+
+| Nom | Pourquoi |
+|---|---|
+| `ipc_level` | colonne contemporaine quasi cible |
+| `inflation_mom` | colonne contemporaine |
+| `inflation_yoy` | colonne contemporaine |
+| toute colonne `target_*` | vérité terrain future |
+| `ipc_change` | transformation de la cible historique, explicitement interdite en V3 |
+
+---
+
+## 11. Résumé d'Usage
+
+Pour l'exploration :
+- utiliser toutes les colonnes descriptives et cibles
+
+Pour la modélisation prédictive :
+- privilégier les colonnes laguées (`*_lag1`, `*_lag2`, `*_lag3`)
+- utiliser `split_label` pour séparer train/test
+- vérifier la complétude des colonnes macro avant d'entraîner `hybrid_macro_index`
+
+Pour l'interprétation :
+- `behavioral_index_pure` = signal digital pur
+- `hybrid_macro_index` = signal combiné digital + macro
+

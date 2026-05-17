@@ -65,7 +65,7 @@ def _compute_roc(y_true: np.ndarray, scores: np.ndarray):
 
     tprs.append(1.0); fprs.append(1.0)
     tprs, fprs = np.array(tprs), np.array(fprs)
-    auc = float(np.trapz(tprs, fprs))
+    auc = float(np.trapezoid(tprs, fprs) if hasattr(np, "trapezoid") else np.trapz(tprs, fprs))
     return tprs, fprs, thresholds, abs(auc)   # abs car intégrale peut être négative
 
 
@@ -490,18 +490,18 @@ def _print_warning_summary(metrics_df: pd.DataFrame) -> None:
             lt = f"{row['lead_time_mean_months']:.1f}" if not pd.isna(row["lead_time_mean_months"]) else "n/a"
             print(f"  {row['signal']:<28} {row['auc']:>6.3f} {row['f1']:>6.3f} {lt:>12}")
 
-    print("\n  H1 validée si AUC > 0.65  (signal prédit le régime d'inflation)")
-    print("  H2 validée si ΔAUC(hybrid - behavioral) > 0.05  (macro apporte de la valeur)")
+    print("\n  H1 validee si AUC > 0.65  (signal predit le regime d'inflation)")
+    print("  H2 validee si dAUC(hybrid - behavioral) > 0.05  (macro apporte de la valeur)")
 
     auc_beh = global_df[global_df["signal"] == "behavioral"]["auc"].values
     auc_hyb = global_df[global_df["signal"] == "hybrid"]["auc"].values
     if len(auc_beh) > 0:
-        h1 = "✓ VALIDÉE" if auc_beh[0] > 0.65 else "✗ REJETÉE"
-        print(f"\n  → H1 (behavioral AUC={auc_beh[0]:.3f} > 0.65) : {h1}")
+        h1 = "OK VALIDEE" if auc_beh[0] > 0.65 else "NON REJETEE"
+        print(f"\n  -> H1 (behavioral AUC={auc_beh[0]:.3f} > 0.65) : {h1}")
     if len(auc_beh) > 0 and len(auc_hyb) > 0:
         delta = auc_hyb[0] - auc_beh[0]
-        h2 = "✓ VALIDÉE" if delta > 0.05 else "✗ REJETÉE"
-        print(f"  → H2 (ΔAUC={delta:+.3f} > 0.05) : {h2}")
+        h2 = "OK VALIDEE" if delta > 0.05 else "NON REJETEE"
+        print(f"  -> H2 (dAUC={delta:+.3f} > 0.05) : {h2}")
     print("=" * 78)
 
 

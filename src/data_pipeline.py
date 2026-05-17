@@ -459,7 +459,8 @@ def load_ipc_data(filepath: str | Path | None = None) -> pd.DataFrame:
     # ─── Dérivées temporelles ─────────────────────────────────────────────────
     df["ipc_yoy"]    = df["ipc"].pct_change(12) * 100   # variation annuelle en %
     df["ipc_mom"]    = df["ipc"].pct_change(1)  * 100   # variation mensuelle en %
-    df["ipc_change"] = _normalise_0_1(df["ipc_yoy"].abs())
+    # NOTE V3 : ipc_change retire — ne pas inclure la cible comme feature BESI
+    # df["ipc_change"] = _normalise_0_1(df["ipc_yoy"].abs())  # SUPPRIME
 
     df.index.name = "date"
     df.to_csv(cache, index=True)
@@ -491,7 +492,8 @@ def build_besi_index(
     """
     Construit le BESI (Behavioral Economic Stress Index) composite.
 
-    BESI = 0.40*trends + 0.30*reddit + 0.20*youtube + 0.10*ipc_change
+    BESI = 0.50*trends + 0.30*reddit + 0.20*youtube
+    (ipc_change retire en V3 — data leakage cible -> feature)
 
     Toutes les composantes sont renormalisées 0-1 avant agrégation.
     L'alignement se fait sur l'intersection temporelle des quatre sources.
@@ -514,7 +516,7 @@ def build_besi_index(
     master["trends_composite"]  = _normalise_0_1(trends_df.loc[idx, "trends_composite"])
     master["reddit_composite"]  = _normalise_0_1(reddit_df.loc[idx, "reddit_composite"])
     master["youtube_composite"] = _normalise_0_1(youtube_df.loc[idx, "youtube_composite"])
-    master["ipc_change"]        = _normalise_0_1(ipc_df.loc[idx, "ipc_change"])
+    # ipc_change supprime en V3 (data leakage — derive de la cible ipc_yoy)
 
     for col in ["ipc", "ipc_yoy", "ipc_mom"]:
         if col in ipc_df.columns:

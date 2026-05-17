@@ -1,0 +1,4 @@
+model,rmse,mae,mape
+naif,1.6094,1.2,1.0635
+sarima,1.9227,1.5373,1.3796
+sarimax_behavioral,1.8914,1.5225,1.3629

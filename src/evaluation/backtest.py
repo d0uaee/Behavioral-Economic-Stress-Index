@@ -38,15 +38,43 @@ FIGURES     = ROOT / "outputs" / "figures"
 REPORTS.mkdir(parents=True, exist_ok=True)
 FIGURES.mkdir(parents=True, exist_ok=True)
 
-# Fenêtres d'évaluation — DOIT correspondre à build_model_dataset.py
-EVAL_WINDOWS = [
-    {"label": "A", "train": ("2010-01-01", "2017-12-01"), "test": ("2018-01-01", "2019-12-01")},
-    {"label": "B", "train": ("2010-01-01", "2019-12-01"), "test": ("2020-01-01", "2021-12-01")},
-    {"label": "C", "train": ("2010-01-01", "2021-12-01"), "test": ("2022-01-01", "2024-12-01")},
-]
+SARIMA_ORDER    = (2, 1, 1)
+SARIMA_SEASONAL = (0, 1, 1, 12)
 
-SARIMA_ORDER        = (2, 1, 1)
-SARIMA_SEASONAL     = (0, 1, 1, 12)
+# Ordre simplifié utilisé quand les données sont trop courtes pour le modèle complet
+SARIMA_ORDER_SIMPLE    = (1, 1, 0)
+SARIMA_SEASONAL_SIMPLE = (0, 1, 0, 12)
+MIN_TRAIN_MONTHS = 36   # minimum absolu pour SARIMA(2,1,1)×(0,1,1)[12]
+
+
+def _derive_windows(gold: pd.DataFrame) -> list:
+    """
+    Dérive les fenêtres d'évaluation directement depuis la colonne split_label
+    du Gold dataset. Adaptatif : fonctionne avec SHORT (A,B) ou FULL (A,B,C).
+    """
+    windows = []
+    labels_found = set()
+    for cell in gold["split_label"].dropna().unique():
+        for part in str(cell).split("|"):
+            if "_" in part:
+                labels_found.add(part.split("_")[1])   # "A", "B", "C"
+
+    for lbl in sorted(labels_found):
+        train_mask = gold["split_label"].str.contains(f"train_{lbl}", na=False)
+        test_mask  = gold["split_label"].str.contains(f"test_{lbl}",  na=False)
+        if not (train_mask.any() and test_mask.any()):
+            continue
+        train_idx = gold.index[train_mask]
+        test_idx  = gold.index[test_mask]
+        windows.append({
+            "label": lbl,
+            "train_start": train_idx.min(),
+            "train_end":   train_idx.max(),
+            "test_start":  test_idx.min(),
+            "test_end":    test_idx.max(),
+        })
+
+    return windows
 
 
 # ─── Métriques ────────────────────────────────────────────────────────────────
@@ -77,9 +105,12 @@ def _naive_predict_one(train_series: pd.Series) -> float:
 def _sarima_fit(
     train_series: pd.Series,
     exog_train:   "pd.DataFrame | None" = None,
+    simple:       bool = False,
 ):
     """
-    Ajuste un SARIMA(2,1,1)×(0,1,1)[12] sur train_series.
+    Ajuste un SARIMA sur train_series.
+    - simple=False : SARIMA(2,1,1)×(0,1,1)[12]  — modèle complet
+    - simple=True  : SARIMA(1,1,0)×(0,1,0)[12]  — modèle robuste pour peu de données
     Retourne le résultat fitté, ou None si échec.
     """
     try:
@@ -87,28 +118,50 @@ def _sarima_fit(
     except ImportError:
         raise ImportError("statsmodels requis : pip install statsmodels")
 
+    order    = SARIMA_ORDER_SIMPLE    if simple else SARIMA_ORDER
+    seasonal = SARIMA_SEASONAL_SIMPLE if simple else SARIMA_SEASONAL
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = SARIMAX(
             train_series,
             exog                  = exog_train,
-            order                 = SARIMA_ORDER,
-            seasonal_order        = SARIMA_SEASONAL,
+            order                 = order,
+            seasonal_order        = seasonal,
             enforce_stationarity  = False,
             enforce_invertibility = False,
         )
         try:
-            return model.fit(disp=False, maxiter=200)
+            return model.fit(disp=False, maxiter=300)
         except Exception as e:
             logger.debug(f"  SARIMA fit failed : {e}")
             return None
+
+
+def _safe_forecast(fit_result, n_steps: int, exog_te, train_series: pd.Series) -> float:
+    """
+    Récupère la prévision 1-pas et valide qu'elle est dans une plage raisonnable.
+    Si la prévision est absurde (> 5× l'écart de la série train), retourne naïf.
+    """
+    try:
+        fc = fit_result.get_forecast(steps=n_steps, exog=exog_te)
+        pred = float(fc.predicted_mean.iloc[0])
+
+        # Sanity check : la prévision doit rester dans ±30% de la plage train
+        train_mean  = float(train_series.mean())
+        train_range = float(train_series.max() - train_series.min()) + 1e-6
+        if abs(pred - train_mean) > 5 * train_range:
+            logger.debug(f"  Prediction hors bornes ({pred:.1f}) → fallback naïf")
+            return _naive_predict_one(train_series)
+        return pred
+    except Exception:
+        return _naive_predict_one(train_series)
 
 
 def _walk_forward_predict(
     gold:        pd.DataFrame,
     target_col:  str,
     train_start: pd.Timestamp,
-    train_end:   pd.Timestamp,
     test_dates:  pd.DatetimeIndex,
     model_type:  str,                       # "naif" | "sarima" | "sarimax"
     exog_col:    "str | None" = None,
@@ -117,21 +170,26 @@ def _walk_forward_predict(
     Vrai walk-forward expanding window (1-step-ahead).
 
     Pour chaque date t dans test_dates :
-      - Train sur [train_start, t-1]
-      - Prédit t+1 (un seul pas)
+      - Train sur [data_start, t-1]  (train_start = premier mois disponible)
+      - Prédit t (un seul pas)
       - Enregistre la prédiction
+
+    Le modèle SARIMA complet (2,1,1)×(0,1,1)[12] est utilisé si >= 48 mois.
+    Sinon, modèle simplifié (1,1,0)×(0,1,0)[12] pour stabilité.
 
     Retourne un array de longueur len(test_dates).
     """
     preds = []
+    # Vrai début des données disponibles (peut être > train_start si données partielles)
+    data_start = gold[target_col].dropna().index.min()
+    effective_start = max(train_start, data_start)
 
     for i, test_date in enumerate(test_dates):
         # Fenêtre train expansible : tout jusqu'au mois PRÉCÉDANT test_date
         cutoff      = test_date - pd.offsets.MonthBegin(1)
-        train_slice = gold.loc[train_start:cutoff, target_col].dropna()
+        train_slice = gold.loc[effective_start:cutoff, target_col].dropna()
 
         if len(train_slice) < 24:
-            # Pas assez de données — fallback naïf
             preds.append(float(train_slice.iloc[-1]) if len(train_slice) > 0 else np.nan)
             continue
 
@@ -139,12 +197,15 @@ def _walk_forward_predict(
             preds.append(_naive_predict_one(train_slice))
             continue
 
+        # Choisir le niveau de complexité selon la taille du train
+        use_simple = len(train_slice) < MIN_TRAIN_MONTHS
+
         # SARIMA / SARIMAX
         exog_tr = None
         exog_te = None
         if model_type == "sarimax" and exog_col and exog_col in gold.columns:
             exog_series = gold[exog_col]
-            exog_tr_raw = exog_series.loc[train_start:cutoff].reindex(train_slice.index)
+            exog_tr_raw = exog_series.loc[effective_start:cutoff].reindex(train_slice.index)
             exog_tr_raw = exog_tr_raw.ffill().bfill()
             if exog_tr_raw.isna().mean() < 0.3:
                 exog_tr = exog_tr_raw.to_frame(exog_col)
@@ -154,21 +215,18 @@ def _walk_forward_predict(
                     te_val = exog_series.loc[:cutoff].iloc[-1] if len(exog_series.loc[:cutoff]) > 0 else 0.0
                 exog_te = pd.DataFrame({exog_col: [te_val]})
 
-        fit_result = _sarima_fit(train_slice, exog_train=exog_tr)
+        fit_result = _sarima_fit(train_slice, exog_train=exog_tr, simple=use_simple)
+        if fit_result is None:
+            # Réessayer avec le modèle simple si le complet échoue
+            fit_result = _sarima_fit(train_slice, exog_train=exog_tr, simple=True)
         if fit_result is None:
             preds.append(_naive_predict_one(train_slice))
             continue
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                fc = fit_result.get_forecast(steps=1, exog=exog_te)
-                preds.append(float(fc.predicted_mean.iloc[0]))
-            except Exception:
-                preds.append(_naive_predict_one(train_slice))
+        preds.append(_safe_forecast(fit_result, 1, exog_te, train_slice))
 
         if (i + 1) % 6 == 0:
-            logger.info(f"    Walk-forward {model_type} : {i+1}/{len(test_dates)} pas effectués")
+            logger.info(f"    Walk-forward {model_type} : {i+1}/{len(test_dates)} pas effectues")
 
     return np.array(preds)
 
@@ -212,50 +270,59 @@ def run_backtest(
         )
 
     gold = pd.read_csv(gold_path, parse_dates=["month"], index_col="month")
-    logger.info(f"Gold dataset chargé : {gold.shape}")
+    logger.info(f"Gold dataset charge : {gold.shape}")
 
     # Colonnes nécessaires
     target_col = "ipc_level"
-    beh_col    = "behavioral_index_pure_lag1"   # lag1 = disponible avant publication IPC(t)
+    beh_col    = "behavioral_index_pure_lag1"
     hyb_col    = "hybrid_macro_index_lag1"
 
     if target_col not in gold.columns:
-        raise KeyError(f"Colonne '{target_col}' absente du Gold dataset. Colonnes : {list(gold.columns)}")
+        raise KeyError(f"Colonne '{target_col}' absente du Gold dataset.")
 
-    rows        = []          # résultats agrégés
-    pred_frames = []          # prédictions détaillées
+    # Dériver les fenêtres depuis les split_labels du Gold (adaptatif FULL/SHORT)
+    windows = _derive_windows(gold)
+    if not windows:
+        raise RuntimeError("Aucune fenetre d'evaluation trouvee dans le Gold dataset.")
+    logger.info(f"Fenetres detectees : {[w['label'] for w in windows]}")
 
-    for window in EVAL_WINDOWS:
-        lbl        = window["label"]
-        train_start = pd.Timestamp(window["train"][0])
-        train_end   = pd.Timestamp(window["train"][1])
-        test_start  = pd.Timestamp(window["test"][0])
-        test_end    = pd.Timestamp(window["test"][1])
+    rows        = []
+    pred_frames = []
 
-        train = gold.loc[train_start:train_end]
+    for window in windows:
+        lbl         = window["label"]
+        train_start = window["train_start"]
+        test_start  = window["test_start"]
+        test_end    = window["test_end"]
+
         test  = gold.loc[test_start:test_end]
+        y_test = test[target_col].dropna()
+        n      = len(y_test)
 
-        if len(train) < 24 or len(test) < 6:
-            logger.warning(f"Bloc {lbl} : trop peu de données (train={len(train)}, test={len(test)}) — ignoré")
+        # Vérifier qu'on a assez de données train effectives
+        data_start   = gold[target_col].dropna().index.min()
+        eff_start    = max(train_start, data_start)
+        cutoff_first = test_start - pd.offsets.MonthBegin(1)
+        n_train_eff  = len(gold.loc[eff_start:cutoff_first, target_col].dropna())
+
+        if n_train_eff < 24 or n < 6:
+            logger.warning(f"Bloc {lbl} : train effectif={n_train_eff}, test={n} — ignore")
             continue
-
-        y_train = train[target_col].dropna()
-        y_test  = test[target_col].dropna()
-        n       = len(y_test)
 
         if n == 0:
-            logger.warning(f"Bloc {lbl} : aucune observation test — ignoré")
+            logger.warning(f"Bloc {lbl} : aucune observation test — ignore")
             continue
 
-        logger.info(f"\nBloc {lbl} | train initial={len(y_test)} mois | test={n} mois")
-        logger.info(f"  → Walk-forward 1-step-ahead (re-fit à chaque pas)")
+        model_label = "simple" if n_train_eff < MIN_TRAIN_MONTHS else "complet"
+        logger.info(f"\nBloc {lbl} | train effectif={n_train_eff} mois ({model_label}) | test={n} mois")
+        logger.info(f"  -> Walk-forward 1-step-ahead")
 
         test_dates = y_test.index
 
         # ── Modèle 1 : Naïf (walk-forward) ───────────────────────────────────
-        logger.info(f"  Naïf...")
+        logger.info(f"  Naif...")
         pred_naif = _walk_forward_predict(
-            gold, target_col, train_start, train_end, test_dates, "naif"
+            gold, target_col, train_start, test_dates, "naif"
         )
         rows.append({
             "bloc": lbl, "model": "naif",
@@ -267,9 +334,9 @@ def run_backtest(
         pred_frames.append(_pred_frame(y_test, pred_naif, lbl, "naif"))
 
         # ── Modèle 2 : SARIMA walk-forward ────────────────────────────────────
-        logger.info(f"  SARIMA expanding-window (peut prendre ~{n//2} secondes)...")
+        logger.info(f"  SARIMA expanding-window (~{n} fits)...")
         pred_sarima = _walk_forward_predict(
-            gold, target_col, train_start, train_end, test_dates, "sarima"
+            gold, target_col, train_start, test_dates, "sarima"
         )
         rows.append({
             "bloc": lbl, "model": "sarima",
@@ -284,7 +351,7 @@ def run_backtest(
         if beh_col in gold.columns:
             logger.info(f"  SARIMAX + behavioral...")
             pred_beh = _walk_forward_predict(
-                gold, target_col, train_start, train_end, test_dates,
+                gold, target_col, train_start, test_dates,
                 "sarimax", exog_col=beh_col,
             )
             rows.append({
@@ -296,13 +363,13 @@ def run_backtest(
             })
             pred_frames.append(_pred_frame(y_test, pred_beh, lbl, "sarimax_behavioral"))
         else:
-            logger.warning(f"  '{beh_col}' absent du Gold — SARIMAX_behavioral ignoré")
+            logger.warning(f"  '{beh_col}' absent du Gold — SARIMAX_behavioral ignore")
 
         # ── Modèle 4 : SARIMAX + hybrid (walk-forward) ────────────────────────
         if hyb_col in gold.columns:
             logger.info(f"  SARIMAX + hybrid...")
             pred_hyb = _walk_forward_predict(
-                gold, target_col, train_start, train_end, test_dates,
+                gold, target_col, train_start, test_dates,
                 "sarimax", exog_col=hyb_col,
             )
             rows.append({
@@ -314,7 +381,7 @@ def run_backtest(
             })
             pred_frames.append(_pred_frame(y_test, pred_hyb, lbl, "sarimax_hybrid"))
         else:
-            logger.warning(f"  '{hyb_col}' absent du Gold — SARIMAX_hybrid ignoré")
+            logger.warning(f"  '{hyb_col}' absent du Gold — SARIMAX_hybrid ignore")
 
     if not rows:
         raise RuntimeError("Aucun résultat de backtest — vérifier le Gold dataset.")
