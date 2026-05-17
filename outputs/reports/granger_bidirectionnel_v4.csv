@@ -1,0 +1,9 @@
+direction,lag,f_stat,p_value,significant_05,significant_10
+BESI -> inflation,1,0.238,0.6273,False,False
+BESI -> inflation,2,0.248,0.7813,False,False
+BESI -> inflation,3,0.235,0.8715,False,False
+BESI -> inflation,4,0.2,0.9376,False,False
+inflation -> BESI,1,1.663,0.2009,False,False
+inflation -> BESI,2,1.113,0.3339,False,False
+inflation -> BESI,3,1.585,0.2003,False,False
+inflation -> BESI,4,1.282,0.2854,False,False

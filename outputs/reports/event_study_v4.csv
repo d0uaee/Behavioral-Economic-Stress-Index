@@ -1,0 +1,6 @@
+evenement,periode,BESI_moyen,BESI_max,inflation_moyenne,type
+Ukraine/inflation,2022-02 -> 2022-05,0.89,0.92,8.233,choc
+COVID-lockdown,2020-03 -> 2020-06,0.59,0.639,1.146,choc
+Ramadan-2023,2023-03 -> 2023-04,0.951,0.952,16.656,choc
+Ramadan-2022,2022-04 -> 2022-05,0.915,0.92,9.004,choc
+Pre-COVID-stable,2018-01 -> 2019-12,0.407,0.56,0.335,controle

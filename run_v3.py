@@ -285,6 +285,83 @@ def step_warnings() -> None:
         _fail("Warning metrics", e)
 
 
+def step_keyword_discovery() -> None:
+    """
+    ÉTAPE V4-A — Découverte automatique des keywords Google Trends.
+    Réponse à la critique : 'pourquoi ces 7 mots-clés ?'
+    Pipeline : related_queries -> filtrage STL -> clustering K-Means.
+    """
+    _section("ÉTAPE V4-A — KEYWORD DISCOVERY (sélection rigoureuse)")
+    try:
+        from src.ingestion.keyword_discovery import run_keyword_discovery
+        validated = run_keyword_discovery(use_cached_candidates=True, use_cached_trends=True)
+        if not validated.empty:
+            _ok(f"Keywords valides : {len(validated)} en {validated['cluster'].nunique()} clusters")
+            for _, row in validated.iterrows():
+                logger.info(f"    Cluster {int(row['cluster'])} | '{row['keyword']}' "
+                            f"| r={row['best_r']:.3f} @ lag={int(row['best_lag'])}")
+        else:
+            _warn("Aucun keyword valide — keywords V3 conserves")
+    except Exception as e:
+        _fail("Keyword discovery", e, fatal=False)
+        _warn("Keyword discovery echoue — keywords V3 conserves")
+
+
+def step_press() -> None:
+    """
+    ÉTAPE V4-B — Signal presse marocaine via flux RSS.
+    Remplace Reddit/YouTube (inaccessibles, non représentatifs).
+    LIMITE : RSS = 30-90 jours. Signal de validation uniquement.
+    """
+    _section("ÉTAPE V4-B — PRESSE MAROCAINE (signal RSS)")
+    try:
+        from src.ingestion.moroccan_press import ingest_moroccan_press
+        press = ingest_moroccan_press()
+        if not press.empty:
+            _ok(f"Signal presse : {len(press)} mois | {press['press_volume'].sum():.0f} articles")
+            _warn("LIMITE : RSS = 30-90 jours seulement — signal de validation, pas historique")
+        else:
+            _warn("Aucun article collecte — verifier connexion et URLs RSS")
+    except Exception as e:
+        _fail("Presse marocaine", e, fatal=False)
+
+
+def step_causal_validation() -> None:
+    """
+    ÉTAPE V4-C — Validation causale complète.
+    Tests : Granger bidirectionnel, STL vs brut, event study, placebo.
+    """
+    _section("ÉTAPE V4-C — VALIDATION CAUSALE")
+    gold_path = GOLD_DIR / "model_dataset_monthly.csv"
+    if not gold_path.exists():
+        _warn("Gold dataset manquant — executer step_gold d'abord")
+        return
+    try:
+        import pandas as pd
+        from src.analysis.causal_validation import run_causal_validation
+        gold = pd.read_csv(gold_path, parse_dates=["month"], index_col="month")
+        results = run_causal_validation(gold)
+
+        granger = results.get("granger")
+        if granger is not None and not granger.empty:
+            for direction in granger["direction"].unique():
+                sub = granger[granger["direction"] == direction]
+                min_p = sub["p_value"].min()
+                sig = "SIGNIFICATIF" if min_p < 0.05 else "non significatif"
+                logger.info(f"    Granger {direction} : p_min={min_p:.4f} -> {sig}")
+
+        placebo = results.get("placebo")
+        if placebo is not None and not placebo.empty:
+            r_c = float(placebo[placebo["est_cible"]]["r"].iloc[0])
+            r_p = placebo[~placebo["est_cible"]]["r"].abs().max()
+            disc = "OK specifique" if r_c > r_p else "PROBLEME non-specifique"
+            logger.info(f"    Placebo : r_inflation={r_c:.3f} vs r_placebo={r_p:.3f} -> {disc}")
+
+        _ok("Validation causale terminee -> outputs/reports/ + outputs/figures/")
+    except Exception as e:
+        _fail("Causal validation", e, fatal=False)
+
+
 # --- Pipeline complet ----------------------------------------------------------
 
 def run_all(skip_ingest: bool = False, start_date: str = "2010-01-01") -> None:
@@ -356,7 +433,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--step",
-        choices=["ingest", "transform", "indexes", "gold", "backtest", "warnings", "all"],
+        choices=["ingest", "transform", "indexes", "gold", "backtest", "warnings",
+                 "keyword_discovery", "press", "causal_validation", "all"],
         default="all",
         help="Étape à exécuter (défaut : all)",
     )
@@ -378,13 +456,18 @@ def main() -> None:
     args = parser.parse_args()
 
     dispatch = {
-        "ingest":    lambda: step_ingest(skip_existing=True),
-        "transform": step_transform,
-        "indexes":   step_indexes,
-        "gold":      lambda: step_gold(start_date=args.start_date),
-        "backtest":  step_backtest,
-        "warnings":  step_warnings,
-        "all":       lambda: run_all(skip_ingest=args.skip_ingest, start_date=args.start_date),
+        "ingest":             lambda: step_ingest(skip_existing=True),
+        "transform":          step_transform,
+        "indexes":            step_indexes,
+        "gold":               lambda: step_gold(start_date=args.start_date),
+        "backtest":           step_backtest,
+        "warnings":           step_warnings,
+        # ── Nouvelles étapes V4 ───────────────────────────────────────────────
+        "keyword_discovery":  step_keyword_discovery,
+        "press":              step_press,
+        "causal_validation":  step_causal_validation,
+        # ─────────────────────────────────────────────────────────────────────
+        "all":                lambda: run_all(skip_ingest=args.skip_ingest, start_date=args.start_date),
     }
 
     dispatch[args.step]()
