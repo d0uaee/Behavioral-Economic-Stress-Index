@@ -221,7 +221,7 @@ def ingest_moroccan_press(
     logger.info(f"  Bronze sauvegardé : {len(df_all)} articles -> {out_bronze.name}")
 
     # Agréger par mois
-    df_all["month"] = df_all["date"].dt.to_period("M").dt.to_timestamp("MS")
+    df_all["month"] = df_all["date"].dt.to_period("M").dt.to_timestamp()
 
     # Volume total d'articles économiques par mois
     monthly = df_all.groupby("month").agg(

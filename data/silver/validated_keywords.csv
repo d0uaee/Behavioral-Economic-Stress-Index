@@ -1,0 +1,8 @@
+keyword,best_lag,best_r,raw_r,bias_stl,keep,cluster
+inflation maroc,0,0.642,0.833,0.191,True,2
+taux inflation maroc,1,0.489,0.699,0.211,True,5
+budget maroc,0,0.438,0.394,-0.044,True,0
+prix gaz maroc,2,-0.391,0.376,-0.015,True,6
+inflation au maroc,1,0.373,0.711,0.338,True,3
+indice prix maroc,2,0.343,0.424,0.081,True,1
+vie chere maroc,0,0.317,0.174,-0.144,True,4
