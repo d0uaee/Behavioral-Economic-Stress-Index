@@ -1,0 +1,73 @@
+scope,model_1,model_2,loss,alternative,n_obs,dm_stat,p_value,conclusion
+A,Naif,SARIMA,MSE,two-sided,24,-1.5636,0.117911,Difference non significative
+A,Naif,SARIMA,MSE,one-sided,24,-1.5636,0.941045,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,Naif,SARIMA,MAE,two-sided,24,-1.8451,0.065027,Difference non significative
+A,Naif,SARIMA,MAE,one-sided,24,-1.8451,0.967486,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,Naif,SARIMAX+BESI,MSE,two-sided,24,-1.2349,0.216865,Difference non significative
+A,Naif,SARIMAX+BESI,MSE,one-sided,24,-1.2349,0.891567,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,Naif,SARIMAX+BESI,MAE,two-sided,24,-1.5595,0.118881,Difference non significative
+A,Naif,SARIMAX+BESI,MAE,one-sided,24,-1.5595,0.940559,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,Naif,SARIMAX+Hybride,MSE,two-sided,24,-1.781,0.07492,Difference non significative
+A,Naif,SARIMAX+Hybride,MSE,one-sided,24,-1.781,0.96254,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,Naif,SARIMAX+Hybride,MAE,two-sided,24,-1.952,0.05094,Difference non significative
+A,Naif,SARIMAX+Hybride,MAE,one-sided,24,-1.952,0.97453,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMA,SARIMAX+BESI,MSE,two-sided,24,1.0444,0.296291,Difference non significative
+A,SARIMA,SARIMAX+BESI,MSE,one-sided,24,1.0444,0.148146,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMA,SARIMAX+BESI,MAE,two-sided,24,0.6984,0.484935,Difference non significative
+A,SARIMA,SARIMAX+BESI,MAE,one-sided,24,0.6984,0.242467,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMA,SARIMAX+Hybride,MSE,two-sided,24,-0.6684,0.503855,Difference non significative
+A,SARIMA,SARIMAX+Hybride,MSE,one-sided,24,-0.6684,0.748073,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMA,SARIMAX+Hybride,MAE,two-sided,24,-0.4027,0.687177,Difference non significative
+A,SARIMA,SARIMAX+Hybride,MAE,one-sided,24,-0.4027,0.656412,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMAX+BESI,SARIMAX+Hybride,MSE,two-sided,24,-1.2572,0.208669,Difference non significative
+A,SARIMAX+BESI,SARIMAX+Hybride,MSE,one-sided,24,-1.2572,0.895666,Amelioration directionnelle non significative - a nuancer dans la presentation
+A,SARIMAX+BESI,SARIMAX+Hybride,MAE,two-sided,24,-0.758,0.448457,Difference non significative
+A,SARIMAX+BESI,SARIMAX+Hybride,MAE,one-sided,24,-0.758,0.775771,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMA,MSE,two-sided,36,-0.4452,0.656176,Difference non significative
+B,Naif,SARIMA,MSE,one-sided,36,-0.4452,0.671912,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMA,MAE,two-sided,36,-0.8762,0.380925,Difference non significative
+B,Naif,SARIMA,MAE,one-sided,36,-0.8762,0.809537,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMAX+BESI,MSE,two-sided,36,-0.6903,0.48999,Difference non significative
+B,Naif,SARIMAX+BESI,MSE,one-sided,36,-0.6903,0.755005,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMAX+BESI,MAE,two-sided,36,-1.1117,0.266257,Difference non significative
+B,Naif,SARIMAX+BESI,MAE,one-sided,36,-1.1117,0.866872,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMAX+Hybride,MSE,two-sided,36,-0.6949,0.487149,Difference non significative
+B,Naif,SARIMAX+Hybride,MSE,one-sided,36,-0.6949,0.756426,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,Naif,SARIMAX+Hybride,MAE,two-sided,36,-0.9361,0.349232,Difference non significative
+B,Naif,SARIMAX+Hybride,MAE,one-sided,36,-0.9361,0.825384,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMA,SARIMAX+BESI,MSE,two-sided,36,-0.5093,0.610533,Difference non significative
+B,SARIMA,SARIMAX+BESI,MSE,one-sided,36,-0.5093,0.694733,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMA,SARIMAX+BESI,MAE,two-sided,36,-0.8217,0.411265,Difference non significative
+B,SARIMA,SARIMAX+BESI,MAE,one-sided,36,-0.8217,0.794368,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMA,SARIMAX+Hybride,MSE,two-sided,36,-1.2207,0.222209,Difference non significative
+B,SARIMA,SARIMAX+Hybride,MSE,one-sided,36,-1.2207,0.888896,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMA,SARIMAX+Hybride,MAE,two-sided,36,-0.5913,0.554286,Difference non significative
+B,SARIMA,SARIMAX+Hybride,MAE,one-sided,36,-0.5913,0.722857,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMAX+BESI,SARIMAX+Hybride,MSE,two-sided,36,-0.1719,0.863542,Difference non significative
+B,SARIMAX+BESI,SARIMAX+Hybride,MSE,one-sided,36,-0.1719,0.568229,Amelioration directionnelle non significative - a nuancer dans la presentation
+B,SARIMAX+BESI,SARIMAX+Hybride,MAE,two-sided,36,0.2424,0.80845,Difference non significative
+B,SARIMAX+BESI,SARIMAX+Hybride,MAE,one-sided,36,0.2424,0.404225,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMA,MSE,two-sided,60,-1.4146,0.157177,Difference non significative
+global,Naif,SARIMA,MSE,one-sided,60,-1.4146,0.921412,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMA,MAE,two-sided,60,-1.9254,0.054181,Difference non significative
+global,Naif,SARIMA,MAE,one-sided,60,-1.9254,0.972909,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMAX+BESI,MSE,two-sided,60,-1.369,0.171012,Difference non significative
+global,Naif,SARIMAX+BESI,MSE,one-sided,60,-1.369,0.914494,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMAX+BESI,MAE,two-sided,60,-1.9036,0.056964,Difference non significative
+global,Naif,SARIMAX+BESI,MAE,one-sided,60,-1.9036,0.971518,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMAX+Hybride,MSE,two-sided,60,-1.7357,0.082622,Difference non significative
+global,Naif,SARIMAX+Hybride,MSE,one-sided,60,-1.7357,0.958689,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,Naif,SARIMAX+Hybride,MAE,two-sided,60,-2.03,0.042361,Difference significative entre modeles
+global,Naif,SARIMAX+Hybride,MAE,one-sided,60,-2.03,0.97882,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMA,SARIMAX+BESI,MSE,two-sided,60,0.2215,0.824722,Difference non significative
+global,SARIMA,SARIMAX+BESI,MSE,one-sided,60,0.2215,0.412361,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMA,SARIMAX+BESI,MAE,two-sided,60,0.0717,0.942847,Difference non significative
+global,SARIMA,SARIMAX+BESI,MAE,one-sided,60,0.0717,0.471423,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMA,SARIMAX+Hybride,MSE,two-sided,60,-1.1773,0.239075,Difference non significative
+global,SARIMA,SARIMAX+Hybride,MSE,one-sided,60,-1.1773,0.880462,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMA,SARIMAX+Hybride,MAE,two-sided,60,-0.6236,0.532921,Difference non significative
+global,SARIMA,SARIMAX+Hybride,MAE,one-sided,60,-0.6236,0.733539,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMAX+BESI,SARIMAX+Hybride,MSE,two-sided,60,-1.0598,0.289225,Difference non significative
+global,SARIMAX+BESI,SARIMAX+Hybride,MSE,one-sided,60,-1.0598,0.855388,Amelioration directionnelle non significative - a nuancer dans la presentation
+global,SARIMAX+BESI,SARIMAX+Hybride,MAE,two-sided,60,-0.5211,0.602316,Difference non significative
+global,SARIMAX+BESI,SARIMAX+Hybride,MAE,one-sided,60,-0.5211,0.698842,Amelioration directionnelle non significative - a nuancer dans la presentation

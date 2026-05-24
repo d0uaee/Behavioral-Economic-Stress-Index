@@ -1,0 +1,15 @@
+model,test,statistic,p_value,interpretation_model,comparison_note
+SARIMA,Ljung-Box lag 6,6.2973,0.390722,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,Ljung-Box lag 12,10.2282,0.595946,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,Ljung-Box lag 24,11.0456,0.988683,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,Jarque-Bera,3978.4355,0.0,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,Shapiro-Wilk,0.3061,0.0,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,ARCH-LM (lag 12),47.88,3e-06,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMA,Breusch-Pagan,3.9256,0.047555,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Ljung-Box lag 6,6.2855,0.391979,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Ljung-Box lag 12,10.0544,0.611189,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Ljung-Box lag 24,10.8314,0.990164,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Jarque-Bera,4014.277,0.0,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Shapiro-Wilk,0.3049,0.0,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,ARCH-LM (lag 12),47.8884,3e-06,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.
+SARIMAX+BESI,Breusch-Pagan,,,Residus = bruit blanc OK,BESI reduit la structure residuelle: p-values Ljung-Box plus elevees.

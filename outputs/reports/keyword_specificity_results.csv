@@ -1,0 +1,5 @@
+set_name,label,description,AIC,Delta_AIC,coef,p_coef,RMSE_BlocA,RMSE_BlocB,Recall_BlocB,Granger_p,signal_mean,signal_std
+A_marocain_FR,Jeu A — FR Marocain,Keywords en francais specifiques au Maroc (keywords originaux du BESI),65.212,0.359,1.5859,0.1875,17.7067,23.1833,1.0,0.7308,0.215,0.113
+B_generique_EN,Jeu B — EN Generique,"Keywords en anglais generiques (memes themes, langue internationale)",65.295,0.442,13.7474,0.203,16.7757,17.1953,1.0,0.3648,0.0486,0.016
+C_darija_AR,Jeu C — Darija/Arabe,Keywords en arabe/darija (volume attendu tres faible = bruit eleve),66.464,1.611,1.3698,0.6568,18.6352,23.1457,1.0,0.7201,0.0306,0.0577
+D_tunisie_FR,Jeu D — Tunisie (hors-contexte),Memes themes mais geo=Tunisie : signal hors-contexte marocain,66.853,2.0,0.0,,17.824,23.6042,1.0,,0.0,0.0

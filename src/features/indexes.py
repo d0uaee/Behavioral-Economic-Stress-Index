@@ -135,11 +135,21 @@ def build_behavioral_index_pure(
             from sklearn.decomposition import PCA
             from sklearn.preprocessing import StandardScaler
 
+            common_train = X.index.intersection(cpi_silver.index) if cpi_silver is not None else X.index
+            common_train = common_train[common_train <= pd.Timestamp(train_end)]
+
             X_filled = X.fillna(X.mean())
+            X_train  = X_filled.loc[common_train].values
+            if len(X_train) < 12:
+                logger.warning("Trop peu d'observations pour PCA → fallback equal")
+                return build_behavioral_index_pure(trends_df, train_end, target_col,
+                                                   cpi_silver=None, method="equal")
+
             scaler   = StandardScaler()
-            X_sc     = scaler.fit_transform(X_filled.values)
+            X_sc     = scaler.fit_transform(X_train)
             pca      = PCA(n_components=1, random_state=42)
-            raw      = pd.Series(pca.fit_transform(X_sc)[:, 0], index=X.index)
+            pca.fit(X_sc)
+            raw      = pd.Series(pca.transform(scaler.transform(X_filled.values))[:, 0], index=X.index)
             weights  = {c: float(v) for c, v in zip(feature_cols, pca.components_[0])}
         except ImportError:
             logger.warning("scikit-learn requis pour PCA → fallback equal")

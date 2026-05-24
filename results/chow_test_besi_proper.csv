@@ -1,0 +1,7 @@
+n1,n2,k,rss_pooled,rss1,rss2,f_stat,p_value,coef_pre,coef_post,delta_coef,verdict,relation,signal
+50,34,2,2105.5825,239.3768,1386.8492,11.7906,0.0,1.6349,-14.8113,-16.4461,RUPTURE SIGNIFICATIVE (p<0.05),BESI (behavioral_index_pure_lag1) → inflation_yoy,behavioral_index_pure_lag1
+50,34,2,2093.0362,230.0391,1411.5579,11.0,0.0001,4.041,-11.325,-15.366,RUPTURE SIGNIFICATIVE (p<0.05),trends_prix_alim → inflation_yoy,trends_prix_alim
+50,34,2,2144.0971,234.281,1392.3389,12.7252,0.0,2.89,-14.6478,-17.5378,RUPTURE SIGNIFICATIVE (p<0.05),trends_inflation → inflation_yoy,trends_inflation
+0,0,2,,,,,,,,,NON FIABLE (n1=0 ou n2=0 trop petit),trends_carburant → inflation_yoy,trends_carburant
+0,0,2,,,,,,,,,NON FIABLE (n1=0 ou n2=0 trop petit),trends_subvention → inflation_yoy,trends_subvention
+50,34,2,2088.4942,231.2293,1395.6702,11.3491,0.0,3.8789,-14.5829,-18.4619,RUPTURE SIGNIFICATIVE (p<0.05),trends_composite → inflation_yoy,trends_composite

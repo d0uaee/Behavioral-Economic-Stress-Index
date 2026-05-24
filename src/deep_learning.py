@@ -14,6 +14,7 @@ compare_all_models(results_dict)        -> pd.DataFrame
 """
 
 import time
+import itertools
 import warnings
 import numpy as np
 import pandas as pd
@@ -66,303 +67,333 @@ def _model_color(name: str) -> str:
 # 1. LSTM
 # =============================================================================
 
+def _build_single_lstm(data_arr, s, train_end, look_back, lstm_units_1,
+                       lstm_units_2, dropout, learning_rate, batch_size,
+                       n_features, scaler, tf_imports):
+    try:
+        Sequential    = tf_imports['Sequential']
+        Input         = tf_imports['Input']
+        LSTM          = tf_imports['LSTM']
+        Dropout_layer = tf_imports['Dropout']
+        Dense         = tf_imports['Dense']
+        EarlyStopping = tf_imports['EarlyStopping']
+        Adam          = tf_imports['Adam']
+
+        te         = pd.Timestamp(train_end)
+        X_all, y_all, dates_all = [], [], []
+        for i in range(len(data_arr) - look_back):
+            X_all.append(data_arr[i : i + look_back])
+            y_all.append(data_arr[i + look_back, 0])
+            dates_all.append(s.index[i + look_back])
+        X_all     = np.array(X_all)
+        y_all     = np.array(y_all)
+        dates_all = pd.DatetimeIndex(dates_all)
+
+        train_mask = dates_all <= te
+        test_mask  = dates_all >  te
+        if train_mask.sum() < max(look_back + 3, 15) or test_mask.sum() < 5:
+            return None
+
+        X_train, y_train = X_all[train_mask], y_all[train_mask]
+        X_test,  y_test  = X_all[test_mask],  y_all[test_mask]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = Sequential([
+                Input(shape=(look_back, n_features)),
+                LSTM(lstm_units_1, return_sequences=True),
+                Dropout_layer(dropout),
+                LSTM(lstm_units_2),
+                Dense(1)
+            ])
+            model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
+
+            early_stop = EarlyStopping(monitor="val_loss", patience=10,
+                                       restore_best_weights=True, verbose=0)
+            t0 = time.time()
+            history = model.fit(X_train, y_train, epochs=150, batch_size=batch_size,
+                                validation_split=0.15, callbacks=[early_stop],
+                                shuffle=False, verbose=0)
+            train_time = time.time() - t0
+
+        def _inv(norm_vals):
+            dummy = np.zeros((len(norm_vals), n_features))
+            dummy[:, 0] = norm_vals
+            return scaler.inverse_transform(dummy)[:, 0]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            y_pred_inv = _inv(model.predict(X_test, verbose=0).ravel())
+        y_true_inv = _inv(y_test)
+
+        # Vérifier les NaN
+        if np.isnan(y_pred_inv).any() or np.isnan(y_true_inv).any():
+            return None
+        
+        rmse = _rmse(y_true_inv, y_pred_inv)
+        mae  = _mae(y_true_inv,  y_pred_inv)
+        mape = _mape(y_true_inv, y_pred_inv)
+        
+        # Vérifier si les métriques sont valides
+        if np.isnan(rmse) or np.isinf(rmse) or rmse > 100:
+            return None
+
+        return {
+            "rmse": rmse,
+            "mae":  mae,
+            "mape": mape,
+            "y_true": y_true_inv, "y_pred": y_pred_inv,
+            "test_dates": dates_all[test_mask],
+            "epochs_run": len(history.history["loss"]),
+            "history": history.history,
+            "model": model,
+            "look_back": look_back,
+            "n_features": n_features,
+            "train_time": round(train_time, 1),
+        }
+    except Exception as e:
+        return None
+
+
 def build_lstm(
-    series:     pd.Series,
-    exog:       "pd.DataFrame | None" = None,
-    look_back:  int   = 12,
-    train_end:  str   = "2021-12-01",
-    epochs:     int   = 50,
-    batch_size: int   = 16,
-    lstm_units: tuple = (64, 32),
-    dropout:    float = 0.10,
-    save_fig:   bool  = True,
+    series,
+    exog=None,
+    train_end="2021-12-01",
+    epochs=150,
+    save_fig=True,
 ) -> dict:
-    """
-    Entraine un reseau LSTM pour la prevision h=1 de l'IPC Maroc.
-
-    Architecture
-    ------------
-    Input  : sequences de look_back mois (IPC + exog eventuellement)
-    Couche 1 : LSTM(lstm_units[0], return_sequences=True)
-    Dropout  : dropout
-    Couche 2 : LSTM(lstm_units[1])
-    Sortie   : Dense(1)
-    Optimizer : Adam(lr=0.001)   Loss : MSE
-    Early stopping : patience=8 sur val_loss
-
-    Note methodologique
-    -------------------
-    Meme coupure train/test que SARIMA (train_end='2021-12-01').
-    Normalisation MinMaxScaler 0-1, invertion avant les metriques.
-    Pas d'optimisation hyperparametres -- but = comparaison juste.
-    shuffle=False : la serie temporelle ne doit pas etre melangee.
-
-    Parametres
-    ----------
-    series     : serie IPC mensuelle (valeurs absolues, freq='MS')
-    exog       : variables exogenes (BESI, trends...) -- optionnel
-    look_back  : taille de la fenetre d'entree en mois (defaut 12)
-    train_end  : date de fin d'entrainement (defaut '2021-12-01')
-    epochs     : nombre maximal d'epochs (early stopping actif)
-    batch_size : taille des mini-lots
-    lstm_units : (unites_couche1, unites_couche2)
-    dropout    : taux de dropout entre les deux couches LSTM
-    save_fig   : sauvegarder les 3 graphiques
-
-    Retourne
-    --------
-    dict : rmse, mae, mape, y_true, y_pred, test_dates,
-           train_time, n_params, epochs, history
-    """
-    # Import TensorFlow -- optionnel (ne bloque pas les autres modules)
     try:
         import tensorflow as tf
         from tensorflow.keras.models import Sequential
         from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
         from tensorflow.keras.callbacks import EarlyStopping
+        from tensorflow.keras.optimizers import Adam
         from sklearn.preprocessing import MinMaxScaler
         tf.random.set_seed(42)
+        tf_imports = dict(Sequential=Sequential, Input=Input, LSTM=LSTM,
+                          Dropout=Dropout, Dense=Dense,
+                          EarlyStopping=EarlyStopping, Adam=Adam)
     except ImportError as exc:
         raise ImportError(
-            "TensorFlow et scikit-learn sont requis pour build_lstm().\n"
+            "TensorFlow et scikit-learn sont requis.\n"
             "Installation : pip install tensorflow scikit-learn\n"
-            f"Erreur originale : {exc}"
+            f"Erreur : {exc}"
         ) from exc
 
-    # ── Preparation des donnees ───────────────────────────────────────────────
+    # Preparation donnees
     s = series.dropna().copy()
+    month_sin = pd.Series(np.sin(2*np.pi*s.index.month/12), index=s.index)
+    month_cos = pd.Series(np.cos(2*np.pi*s.index.month/12), index=s.index)
 
     if exog is not None:
-        exog_al = exog.reindex(s.index).ffill().bfill()
-        common  = s.index.intersection(exog_al.dropna().index)
-        s       = s.loc[common]
-        exog_al = exog_al.loc[common]
-        data_arr = np.column_stack([s.values, exog_al.values])
+        exog_al  = exog.reindex(s.index).ffill().bfill()
+        common   = s.index.intersection(exog_al.dropna().index)
+        s        = s.loc[common]
+        exog_al  = exog_al.loc[common]
+        month_sin = month_sin.loc[common]
+        month_cos = month_cos.loc[common]
+        data_arr = np.column_stack([s.values, exog_al.values,
+                                    month_sin.values, month_cos.values])
     else:
-        exog_al  = None
-        data_arr = s.values.reshape(-1, 1)
+        data_arr = np.column_stack([s.values, month_sin.values, month_cos.values])
 
     n_features = data_arr.shape[1]
 
-    # Normalisation 0-1 (toutes les colonnes ensemble)
+    # Normalisation fit sur train uniquement (pas de leakage)
+    te        = pd.Timestamp(train_end)
+    train_idx = s.index <= te
     scaler    = MinMaxScaler(feature_range=(0, 1))
-    data_norm = scaler.fit_transform(data_arr)
+    scaler.fit(data_arr[train_idx])
+    data_norm = scaler.transform(data_arr)
 
-    # ── Sequences glissantes ──────────────────────────────────────────────────
-    # X[i] = data_norm[i : i+look_back]   forme : (n, look_back, n_features)
-    # y[i] = data_norm[i+look_back, 0]    cible : IPC uniquement
-    X_all, y_all, dates_all = [], [], []
-    for i in range(len(data_norm) - look_back):
-        X_all.append(data_norm[i : i + look_back])
-        y_all.append(data_norm[i + look_back, 0])
-        dates_all.append(s.index[i + look_back])
+    # Grille de recherche
+    param_grid = {
+        "look_back"    : [6, 12, 18, 24],
+        "lstm_units_1" : [32, 64, 128],
+        "lstm_units_2" : [16, 32, 64],
+        "dropout"      : [0.1, 0.2, 0.3],
+        "learning_rate": [0.001, 0.0005],
+        "batch_size"   : [8, 16, 32],
+    }
+    combos = list(itertools.product(*param_grid.values()))
+    total  = len(combos)
+    print(f"\nGridSearch LSTM : {total} combinaisons")
+    print(f"Features        : {n_features} (IPC + month_sin/cos"
+          f"{' + exog' if exog is not None else ''})")
+    print(f"Scaler          : fit sur train uniquement (no leakage)")
 
-    X_all      = np.array(X_all)
-    y_all      = np.array(y_all)
-    dates_all  = pd.DatetimeIndex(dates_all)
+    gs_results = []
+    best_rmse  = np.inf
+    best_res   = None
+    best_combo = None
 
-    # Split train / test identique a SARIMA
-    te         = pd.Timestamp(train_end)
-    train_mask = dates_all <= te
-    test_mask  = dates_all >  te
+    for i, (lb, u1, u2, dr, lr, bs) in enumerate(combos):
+        res = _build_single_lstm(data_norm, s, train_end, lb,
+                                 u1, u2, dr, lr, bs,
+                                 n_features, scaler, tf_imports)
+        if res is None:
+            continue
 
-    if train_mask.sum() < look_back + 1:
-        raise ValueError(
-            f"Pas assez de donnees d'entrainement ({train_mask.sum()} sequences). "
-            f"Reduire look_back ou avancer train_end."
-        )
-    if test_mask.sum() == 0:
-        raise ValueError(f"Aucune donnee de test apres {train_end}.")
+        gs_results.append({
+            "look_back": lb, "lstm_units_1": u1, "lstm_units_2": u2,
+            "dropout": dr, "learning_rate": lr, "batch_size": bs,
+            "rmse": res["rmse"], "mae": res["mae"], "mape": res["mape"],
+            "epochs_run": res["epochs_run"],
+            "train_time_s": res["train_time"],
+        })
 
-    X_train, y_train = X_all[train_mask], y_all[train_mask]
-    X_test,  y_test  = X_all[test_mask],  y_all[test_mask]
-    dates_test       = dates_all[test_mask]
+        if res["rmse"] < best_rmse:
+            best_rmse  = res["rmse"]
+            best_res   = res
+            best_combo = {"look_back": lb, "lstm_units_1": u1,
+                          "lstm_units_2": u2, "dropout": dr,
+                          "learning_rate": lr, "batch_size": bs}
 
-    sep = "=" * 62
+        print(f"  [{i+1:4d}/{total}] lb={lb:2d} u=({u1:3d},{u2:2d}) "
+              f"dr={dr} lr={lr} bs={bs:2d} "
+              f"-> RMSE={res['rmse']:.5f} ep={res['epochs_run']:3d} "
+              f"[BEST={best_rmse:.5f}]")
+
+    df_gs = pd.DataFrame(gs_results).sort_values("rmse").reset_index(drop=True)
+
+    sep = "=" * 70
     print(f"\n{sep}")
-    print("  LSTM -- PREVISION IPC MAROC")
-    print(f"  Serie        : {s.index[0].date()} -> {s.index[-1].date()}"
-          f"  ({len(s)} obs)")
-    print(f"  Features     : {n_features}"
-          f"  (IPC{' + exog' if exog is not None else ''})")
-    print(f"  Look-back    : {look_back} mois")
-    print(f"  Train        : {dates_all[train_mask][0].date()} -> "
-          f"{te.date()}  ({train_mask.sum()} sequences)")
-    print(f"  Test         : {dates_test[0].date()} -> "
-          f"{dates_test[-1].date()}  ({test_mask.sum()} sequences)")
-    print(f"  Architecture : Input({look_back},{n_features}) -> "
-          f"LSTM({lstm_units[0]}) -> Dropout({dropout}) -> "
-          f"LSTM({lstm_units[1]}) -> Dense(1)")
-    print(f"  Epochs max   : {epochs}  |  Batch : {batch_size}")
+    print("  TOP 10 — GridSearch LSTM")
+    print(sep)
+    print(df_gs.head(10).to_string(index=False))
     print(sep)
 
-    # ── Construction du modele ────────────────────────────────────────────────
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        model = Sequential(
-            [
-                Input(shape=(look_back, n_features)),
-                LSTM(lstm_units[0], return_sequences=True),
-                Dropout(dropout),
-                LSTM(lstm_units[1]),
-                Dense(1),
-            ],
-            name="IPC_LSTM",
-        )
-        model.compile(optimizer="adam", loss="mse")
+    csv_path = REP_DIR / "gridsearch_lstm_results.csv"
+    df_gs.to_csv(csv_path, index=False)
+    print(f"  CSV : {csv_path}")
 
-    n_params = model.count_params()
-    print(f"\n  Parametres trainables : {n_params:,}")
+    print(f"\n  MEILLEUR LSTM")
+    for k, v in best_combo.items():
+        print(f"    {k:<16}: {v}")
+    print(f"    {'rmse':<16}: {best_res['rmse']:.5f}")
+    print(f"    {'mae':<16}: {best_res['mae']:.5f}")
+    print(f"    {'mape':<16}: {best_res['mape']:.2f}%")
 
-    # ── Entrainement ──────────────────────────────────────────────────────────
-    early_stop = EarlyStopping(
-        monitor="val_loss", patience=8,
-        restore_best_weights=True, verbose=0,
-    )
-
-    t0 = time.time()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        history = model.fit(
-            X_train, y_train,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_split=0.15,
-            callbacks=[early_stop],
-            verbose=0,
-            shuffle=False,   # serie temporelle -- ne pas melanger
-        )
-    train_time    = time.time() - t0
-    actual_epochs = len(history.history["loss"])
-
-    print(f"  Entrainement : {actual_epochs} epochs  ({train_time:.1f}s)")
-    print(f"  Loss finale  train : {history.history['loss'][-1]:.6f}")
-    print(f"  Loss finale  val   : {history.history['val_loss'][-1]:.6f}")
-
-    # ── Predictions et inverse transform ─────────────────────────────────────
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        y_pred_norm = model.predict(X_test, verbose=0).ravel()
-
-    def _inverse_ipc(norm_vals: np.ndarray) -> np.ndarray:
-        """Inverse MinMaxScaler sur la colonne IPC (col 0) seulement."""
-        dummy = np.zeros((len(norm_vals), n_features))
-        dummy[:, 0] = norm_vals
-        return scaler.inverse_transform(dummy)[:, 0]
-
-    y_pred_inv = _inverse_ipc(y_pred_norm)
-    y_true_inv = _inverse_ipc(y_test)
-
-    # ── Metriques ─────────────────────────────────────────────────────────────
-    rmse = _rmse(y_true_inv, y_pred_inv)
-    mae  = _mae(y_true_inv, y_pred_inv)
-    mape = _mape(y_true_inv, y_pred_inv)
-
-    print(f"\n  Metriques test ({test_mask.sum()} points) :")
-    print(f"    RMSE  : {rmse:.5f}")
-    print(f"    MAE   : {mae:.5f}")
-    print(f"    MAPE  : {mape:.2f}%")
-    print(sep)
-
-    # ── Sauvegarde du modele ──────────────────────────────────────────────────
-    model_path = MOD_DIR / "lstm_ipc.keras"
     try:
-        model.save(str(model_path))
-        print(f"  Modele sauvegarde : {model_path}")
+        best_res["model"].save(str(MOD_DIR / "lstm_best.keras"))
+        print(f"  Modele sauvegarde : {MOD_DIR / 'lstm_best.keras'}")
     except Exception as e:
-        print(f"  [WARN] Sauvegarde modele echouee : {e}")
-
-    # ── Figures ───────────────────────────────────────────────────────────────
-    if save_fig:
-        # Predictions sur le train pour la figure
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            y_train_pred_norm = model.predict(X_train, verbose=0).ravel()
-        y_train_pred_inv = _inverse_ipc(y_train_pred_norm)
-        y_train_true_inv = _inverse_ipc(y_train)
-        dates_train      = dates_all[train_mask]
-
-        fig = plt.figure(figsize=(14, 9))
-        gs  = gridspec.GridSpec(2, 2, figure=fig, hspace=0.52, wspace=0.35)
-        ax1 = fig.add_subplot(gs[0, :])
-        ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1])
-
-        fig.suptitle(
-            f"LSTM IPC Maroc -- RMSE={rmse:.5f}  MAE={mae:.5f}  MAPE={mape:.2f}%\n"
-            f"LSTM({lstm_units[0]})-LSTM({lstm_units[1]})-Dense(1)  "
-            f"look_back={look_back}  epochs={actual_epochs}  "
-            f"params={n_params:,}  temps={train_time:.1f}s",
-            fontsize=9, fontweight="bold",
-        )
-
-        # Panneau 1 : previsions vs reel ──────────────────────────────────────
-        ax1.plot(dates_train, y_train_true_inv,
-                 color="lightgray", lw=1.0, label="IPC (entrainement)")
-        ax1.plot(dates_train, y_train_pred_inv,
-                 color=_COL_TRAIN, lw=0.9, ls=":", alpha=0.7,
-                 label="LSTM fit (train)")
-        ax1.plot(dates_test, y_true_inv,
-                 color=_COL_REAL, lw=2.0, label="IPC reel (test)", zorder=5)
-        ax1.plot(dates_test, y_pred_inv,
-                 color=_COL_LSTM, lw=1.8, ls="--",
-                 label=f"LSTM pred (test)  RMSE={rmse:.5f}", zorder=4)
-        ax1.axvline(te, color="red", lw=1.2, ls="--", alpha=0.55,
-                    label=f"Coupure {te.date()}")
-        ax1.set_title("LSTM : previsions vs valeurs reelles", fontsize=9)
-        ax1.legend(fontsize=7.5, ncol=3)
-        ax1.set_ylabel("IPC", fontsize=8)
-        ax1.grid(True, alpha=0.3)
-
-        # Panneau 2 : courbe d'apprentissage ──────────────────────────────────
-        ax2.plot(history.history["loss"],
-                 color=_COL_LSTM, lw=1.8, label="Loss train (MSE)")
-        ax2.plot(history.history["val_loss"],
-                 color="#D62728", lw=1.5, ls="--", label="Loss validation")
-        ax2.set_xlabel("Epoch", fontsize=8)
-        ax2.set_ylabel("MSE", fontsize=8)
-        ax2.set_title("Courbe d'apprentissage LSTM", fontsize=9)
-        ax2.legend(fontsize=8)
-        ax2.grid(True, alpha=0.3)
-
-        # Panneau 3 : scatter pred vs reel ────────────────────────────────────
-        lims = (
-            min(y_true_inv.min(), y_pred_inv.min()) * 0.9985,
-            max(y_true_inv.max(), y_pred_inv.max()) * 1.0015,
-        )
-        ax3.scatter(y_true_inv, y_pred_inv,
-                    color=_COL_LSTM, alpha=0.75, s=30, zorder=3)
-        ax3.plot(lims, lims, color="black", lw=1.0, ls="--", alpha=0.45,
-                 label="Prediction parfaite")
-        ax3.set_xlim(*lims)
-        ax3.set_ylim(*lims)
-        ax3.set_xlabel("IPC reel", fontsize=8)
-        ax3.set_ylabel("IPC predit", fontsize=8)
-        ax3.set_title("Previsions vs valeurs reelles (test)", fontsize=9)
-        ax3.legend(fontsize=8)
-        ax3.grid(True, alpha=0.3)
-
-        plt.tight_layout(rect=[0, 0, 1, 0.92])
-        path = FIG_DIR / "lstm_predictions.png"
-        fig.savefig(path, dpi=150, bbox_inches="tight")
-        print(f"  Figure sauvegardee : {path}")
-        plt.close(fig)
+        print(f"  [WARN] {e}")
 
     return {
-        "rmse":       rmse,
-        "mae":        mae,
-        "mape":       mape,
-        "y_true":     y_true_inv,
-        "y_pred":     y_pred_inv,
-        "test_dates": dates_test,
-        "train_time": round(train_time, 1),
-        "n_params":   n_params,
-        "epochs":     actual_epochs,
-        "history":    history.history,
-        "model":      model,
-        "look_back":  look_back,
-        "n_features": n_features,
+        "rmse": best_res["rmse"], "mae": best_res["mae"],
+        "mape": best_res["mape"], "y_true": best_res["y_true"],
+        "y_pred": best_res["y_pred"], "test_dates": best_res["test_dates"],
+        "train_time": best_res["train_time"],
+        "n_params": best_res["model"].count_params(),
+        "epochs": best_res["epochs_run"], "history": best_res["history"],
+        "model": best_res["model"], "look_back": best_combo["look_back"],
+        "n_features": n_features, "best_params": best_combo,
+        "gridsearch_df": df_gs,
     }
+
+
+def plot_gridsearch_results(build_lstm_result, series, train_end="2021-12-01"):
+    best_res   = build_lstm_result
+    best_combo = build_lstm_result["best_params"]
+    df_gs      = build_lstm_result["gridsearch_df"]
+    te         = pd.Timestamp(train_end)
+
+    # Figure 1 : Predictions meilleur modele
+    fig = plt.figure(figsize=(14, 9))
+    gs  = gridspec.GridSpec(2, 2, figure=fig, hspace=0.52, wspace=0.35)
+    ax1 = fig.add_subplot(gs[0, :])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[1, 1])
+
+    s       = series.dropna()
+    s_train = s[s.index <= te]
+    s_test  = s[s.index >  te]
+
+    ax1.plot(s_train.index, s_train.values, color="lightgray", lw=1.2,
+             label="IPC train")
+    ax1.plot(best_res["test_dates"], best_res["y_true"],
+             color=_COL_REAL, lw=2.0, label="IPC reel (test)")
+    ax1.plot(best_res["test_dates"], best_res["y_pred"],
+             color=_COL_LSTM, lw=1.8, ls="--",
+             label=f"LSTM predit  RMSE={best_res['rmse']:.5f}")
+    ax1.axvline(te, color="red", lw=1.2, ls="--", alpha=0.6,
+                label=f"Coupure {te.date()}")
+    ax1.set_title(
+        f"Meilleur LSTM — lb={best_combo['look_back']} "
+        f"u=({best_combo['lstm_units_1']},{best_combo['lstm_units_2']}) "
+        f"dr={best_combo['dropout']} lr={best_combo['learning_rate']} "
+        f"bs={best_combo['batch_size']}",
+        fontsize=9, fontweight="bold"
+    )
+    ax1.legend(fontsize=8, ncol=2)
+    ax1.grid(True, alpha=0.3)
+
+    ax2.plot(best_res["history"]["loss"],
+             color=_COL_LSTM, lw=1.8, label="Loss train")
+    ax2.plot(best_res["history"]["val_loss"],
+             color="#D62728", lw=1.5, ls="--", label="Loss val")
+    ax2.set_title("Courbe apprentissage", fontsize=9)
+    ax2.set_xlabel("Epoch")
+    ax2.set_ylabel("MSE")
+    ax2.legend(fontsize=8)
+    ax2.grid(True, alpha=0.3)
+
+    lims = (min(best_res["y_true"].min(), best_res["y_pred"].min()) * 0.999,
+            max(best_res["y_true"].max(), best_res["y_pred"].max()) * 1.001)
+    ax3.scatter(best_res["y_true"], best_res["y_pred"],
+                color=_COL_LSTM, alpha=0.75, s=30)
+    ax3.plot(lims, lims, color="black", lw=1.0, ls="--", alpha=0.5,
+             label="Prediction parfaite")
+    ax3.set_xlim(*lims); ax3.set_ylim(*lims)
+    ax3.set_xlabel("IPC reel"); ax3.set_ylabel("IPC predit")
+    ax3.set_title("Pred vs Reel (test)", fontsize=9)
+    ax3.legend(fontsize=8)
+    ax3.grid(True, alpha=0.3)
+
+    fig.suptitle("GridSearch LSTM — Meilleur modele", fontsize=11, fontweight="bold")
+    p1 = FIG_DIR / "lstm_gridsearch_best.png"
+    fig.savefig(p1, dpi=150, bbox_inches="tight")
+    print(f"  Figure 1 : {p1}")
+    plt.close(fig)
+
+    # Figure 2 : Distribution RMSE
+    naive_rmse = _rmse(s_test.values[1:], s_test.values[:-1])
+    fig2, ax = plt.subplots(figsize=(10, 5))
+    ax.hist(df_gs["rmse"], bins=30, color=_COL_LSTM, alpha=0.7, edgecolor="white")
+    ax.axvline(best_res["rmse"], color="red", lw=2,
+               label=f"Meilleur RMSE = {best_res['rmse']:.5f}")
+    ax.axvline(naive_rmse, color="gray", lw=1.5, ls="--",
+               label=f"Naif RMSE = {naive_rmse:.5f}")
+    ax.set_xlabel("RMSE")
+    ax.set_ylabel("Nombre de combinaisons")
+    ax.set_title(f"Distribution RMSE — GridSearch LSTM ({len(df_gs)} combinaisons)",
+                 fontsize=11, fontweight="bold")
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.3)
+    p2 = FIG_DIR / "gridsearch_rmse_distribution.png"
+    fig2.savefig(p2, dpi=150, bbox_inches="tight")
+    print(f"  Figure 2 : {p2}")
+    plt.close(fig2)
+
+    # Figure 3 : Heatmap look_back vs units
+    top100 = df_gs.head(100)
+    fig3, ax3b = plt.subplots(figsize=(10, 6))
+    sc = ax3b.scatter(
+        top100["look_back"], top100["lstm_units_1"],
+        s=top100["lstm_units_2"] * 3,
+        c=top100["rmse"], cmap="viridis_r", alpha=0.75
+    )
+    plt.colorbar(sc, ax=ax3b, label="RMSE")
+    ax3b.set_xlabel("look_back (mois)")
+    ax3b.set_ylabel("lstm_units_1")
+    ax3b.set_title("GridSearch — look_back vs units_1 (taille=units_2, couleur=RMSE)",
+                   fontsize=10, fontweight="bold")
+    ax3b.grid(True, alpha=0.3)
+    p3 = FIG_DIR / "gridsearch_heatmap.png"
+    fig3.savefig(p3, dpi=150, bbox_inches="tight")
+    print(f"  Figure 3 : {p3}")
+    plt.close(fig3)
 
 
 # =============================================================================
@@ -1601,66 +1632,410 @@ def compare_all_dl_models(
 
     return df_dl
 
+def _plot_blocs(best_by_bloc: dict):
+    """Figure comparative des deux blocs cote a cote."""
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+    fig.suptitle(
+        "GridSearch LSTM — Resultats par bloc\n"
+        "Bloc A : COVID (2020-2021)  |  Bloc B : Inflation (2022-2024)",
+        fontsize=12, fontweight="bold"
+    )
+
+    for col, (bloc_name, data) in enumerate(best_by_bloc.items()):
+        res      = data["res"]
+        combo    = data["combo"]
+        ipc      = data["ipc"]
+        train_end = pd.Timestamp(data["train_end"])
+
+        # Panel haut : predictions vs reel
+        ax_top = axes[0, col]
+        ipc_train = ipc[ipc.index <= train_end]
+        ax_top.plot(ipc_train.index, ipc_train.values,
+                    color="lightgray", lw=1.2, label="Train")
+        ax_top.plot(res["test_dates"], res["y_true"],
+                    color=_COL_REAL, lw=2.0, label="IPC reel (test)")
+        ax_top.plot(res["test_dates"], res["y_pred"],
+                    color=_COL_LSTM, lw=1.8, ls="--",
+                    label=f"LSTM  RMSE={res['rmse']:.4f}")
+        ax_top.axvline(train_end, color="red", lw=1.2,
+                       ls="--", alpha=0.6, label="Fin train")
+        ax_top.set_title(
+            f"Bloc {bloc_name} — RMSE={res['rmse']:.4f}\n"
+            f"lb={combo['look_back']} u=({combo['lstm_units_1']},"
+            f"{combo['lstm_units_2']}) dr={combo['dropout']} "
+            f"lr={combo['learning_rate']}",
+            fontsize=9
+        )
+        ax_top.legend(fontsize=7.5)
+        ax_top.grid(True, alpha=0.3)
+        ax_top.set_ylabel("IPC")
+
+        # Panel bas : distribution RMSE du gridsearch
+        ax_bot = axes[1, col]
+        df_gs  = data["df_gs"]
+        ax_bot.hist(df_gs["rmse"], bins=25,
+                    color=_COL_LSTM, alpha=0.7, edgecolor="white")
+        ax_bot.axvline(res["rmse"], color="red", lw=2,
+                       label=f"Best={res['rmse']:.4f}")
+        # Ligne baseline selon le bloc
+        baseline = 1.609 if bloc_name == "A" else 1.891
+        ax_bot.axvline(baseline, color="gray", lw=1.5, ls="--",
+                       label=f"Baseline={baseline}")
+        ax_bot.set_title(
+            f"Bloc {bloc_name} — Distribution RMSE "
+            f"({len(df_gs)} combos)",
+            fontsize=9
+        )
+        ax_bot.set_xlabel("RMSE")
+        ax_bot.set_ylabel("Nombre combinaisons")
+        ax_bot.legend(fontsize=8)
+        ax_bot.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    path = FIG_DIR / "lstm_gridsearch_blocs.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    print(f"  Figure blocs sauvegardee : {path}")
+    plt.close(fig)
+
+
+def run_gridsearch_blocs(
+    df,
+    ipc_col="ipc_level",
+    exog_cols=None,
+    save_fig=True,
+) -> pd.DataFrame:
+    """
+    Lance le GridSearch LSTM sur les deux blocs definis par la binome :
+      Bloc A : train 2017-2019  ->  test 2020-2021  (24 pas)
+      Bloc B : train 2017-2021  ->  test 2022-2024  (36 pas)
+    Retourne un DataFrame avec colonnes : bloc, model, rmse, mae, mape, n_test
+    Compatible avec backtest_v3_results.csv de la binome.
+    """
+    BLOCS = {
+        "A": {
+            "train_start": "2017-01-01",
+            "train_end"  : "2019-12-01",
+            "test_start" : "2020-01-01",
+            "test_end"   : "2021-12-01",
+            "n_test"     : 24,
+        },
+        "B": {
+            "train_start": "2017-01-01",
+            "train_end"  : "2021-12-01",
+            "test_start" : "2022-01-01",
+            "test_end"   : "2024-12-01",
+            "n_test"     : 36,
+        },
+    }
+
+    # Grille de recherche
+    param_grid = {
+    "look_back"    : [6, 12, 24],
+    "lstm_units_1" : [32, 64],
+    "lstm_units_2" : [16, 32],
+    "dropout"      : [0.1, 0.2],
+    "learning_rate": [0.001, 0.0005],
+    "batch_size"   : [16],
+}
+
+    # Import TensorFlow
+    try:
+        import tensorflow as tf
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
+        from tensorflow.keras.callbacks import EarlyStopping
+        from tensorflow.keras.optimizers import Adam
+        from sklearn.preprocessing import MinMaxScaler
+        tf.random.set_seed(42)
+        tf_imports = dict(Sequential=Sequential, Input=Input, LSTM=LSTM,
+                          Dropout=Dropout, Dense=Dense,
+                          EarlyStopping=EarlyStopping, Adam=Adam)
+    except ImportError as exc:
+        raise ImportError(f"pip install tensorflow scikit-learn\n{exc}") from exc
+
+    all_rows    = []
+    best_by_bloc = {}
+
+    for bloc_name, bloc in BLOCS.items():
+        print(f"\n{'='*65}")
+        print(f"  BLOC {bloc_name} : train {bloc['train_start']} -> "
+              f"{bloc['train_end']}  |  test {bloc['test_start']} -> "
+              f"{bloc['test_end']}")
+        print(f"{'='*65}")
+
+        # Extraire la periode du bloc (train + test)
+        mask_bloc = (
+            (df.index >= bloc["train_start"]) &
+            (df.index <= bloc["test_end"])
+        )
+        df_bloc = df.loc[mask_bloc].copy()
+
+        ipc_bloc = df_bloc[ipc_col].dropna()
+
+        # Construction data_arr propre
+        # Step 1 : colonnes de base
+        cols_data = {"ipc": ipc_bloc.values}
+
+        # Step 2 : exog disponibles — ffill/bfill par colonne individuellement
+        if exog_cols:
+            for col in exog_cols:
+                series_col = df_bloc[col].reindex(ipc_bloc.index)
+                series_col = series_col.ffill().bfill()
+                if series_col.isna().sum() == 0:
+                    cols_data[col] = series_col.values
+                else:
+                    print(f"  [WARN] {col} encore NaN apres ffill/bfill — ignore")
+
+        # Step 3 : encodage cyclique mois (toujours present)
+        cols_data["month_sin"] = np.sin(2 * np.pi * ipc_bloc.index.month / 12)
+        cols_data["month_cos"] = np.cos(2 * np.pi * ipc_bloc.index.month / 12)
+
+        # Step 4 : assembler en array
+        data_arr   = np.column_stack(list(cols_data.values()))
+        n_features = data_arr.shape[1]
+        col_names  = list(cols_data.keys())
+
+        # Step 5 : verifier qu'il ne reste aucun NaN
+        nan_count = np.isnan(data_arr).sum()
+        if nan_count > 0:
+            print(f"  [WARN] {nan_count} NaN dans data_arr — lignes supprimees")
+            nan_rows  = np.isnan(data_arr).any(axis=1)
+            data_arr  = data_arr[~nan_rows]
+            ipc_bloc  = ipc_bloc[~nan_rows]
+
+        print(f"  data_arr final : {data_arr.shape}  colonnes={col_names}")
+
+        # Verifier qu'on a assez de donnees train
+        train_idx = ipc_bloc.index <= bloc["train_end"]
+        n_train   = train_idx.sum()
+        n_test    = (~train_idx).sum()
+        print(f"  Train : {n_train}  |  Test : {n_test}")
+
+        if n_train < 10:
+            print(f"  [ERREUR] Pas assez de donnees train ({n_train}) — bloc saute")
+            continue
+        if n_test == 0:
+            print(f"  [ERREUR] Pas de donnees test — bloc saute")
+            continue
+
+        # Normalisation FIT sur train uniquement
+        train_idx  = ipc_bloc.index <= bloc["train_end"]
+        scaler     = MinMaxScaler(feature_range=(0, 1))
+        scaler.fit(data_arr[train_idx])
+        data_norm  = scaler.transform(data_arr)
+
+        # GridSearch
+        combos = list(itertools.product(*param_grid.values()))
+        total  = len(combos)
+        print(f"  {total} combinaisons  |  {n_features} features")
+
+        gs_results  = []
+        best_rmse   = np.inf
+        best_res    = None
+        best_combo  = None
+
+        for i, (lb, u1, u2, dr, lr, bs) in enumerate(combos):
+            res = _build_single_lstm(
+                data_norm, ipc_bloc, bloc["train_end"],
+                lb, u1, u2, dr, lr, bs,
+                n_features, scaler, tf_imports
+            )
+            if res is None:
+                continue
+
+            gs_results.append({
+                "look_back": lb, "lstm_units_1": u1, "lstm_units_2": u2,
+                "dropout": dr, "learning_rate": lr, "batch_size": bs,
+                "rmse": res["rmse"], "mae": res["mae"], "mape": res["mape"],
+                "epochs_run": res["epochs_run"],
+            })
+
+            if res["rmse"] < best_rmse:
+                best_rmse  = res["rmse"]
+                best_res   = res
+                best_combo = {
+                    "look_back": lb, "lstm_units_1": u1,
+                    "lstm_units_2": u2, "dropout": dr,
+                    "learning_rate": lr, "batch_size": bs,
+                }
+
+            print(f"  [{i+1:4d}/{total}] Bloc {bloc_name} | "
+                  f"lb={lb:2d} u=({u1:3d},{u2:2d}) "
+                  f"dr={dr} lr={lr} bs={bs:2d} "
+                  f"-> RMSE={res['rmse']:.4f} "
+                  f"[BEST={best_rmse:.4f}]")
+
+        # Sauvegarder CSV du bloc
+        df_gs_bloc = pd.DataFrame(gs_results).sort_values("rmse").reset_index(drop=True)
+        bloc_csv   = REP_DIR / f"gridsearch_lstm_bloc{bloc_name}.csv"
+        df_gs_bloc.to_csv(bloc_csv, index=False)
+        
+        # Sauvegarder aussi une copie avec le nom du scaler utilise
+        bloc_csv_minmax = REP_DIR / f"gridsearch_lstm_bloc{bloc_name}_minmax.csv"
+        df_gs_bloc.to_csv(bloc_csv_minmax, index=False)
+        
+        print(f"\n  Top 5 Bloc {bloc_name} :")
+        print(df_gs_bloc.head(5).to_string(index=False))
+
+        # Stocker pour figures
+        best_by_bloc[bloc_name] = {
+            "res": best_res, "combo": best_combo,
+            "ipc": ipc_bloc, "df_gs": df_gs_bloc,
+            "train_end": bloc["train_end"],
+        }
+
+        # Ligne pour le tableau final (format binome)
+        if best_res is not None:
+            all_rows.append({
+                "bloc" : f"Bloc_{bloc_name}",
+                "model": "LSTM_GridSearch",
+                "rmse" : round(best_res["rmse"], 4),
+                "mae"  : round(best_res["mae"],  4),
+                "mape" : round(best_res["mape"], 2),
+                "n_test": bloc["n_test"],
+            })
+        else:
+            print(f"\n  [WARN] Bloc {bloc_name} : pas assez de donnees pour le GridSearch")
+            all_rows.append({
+                "bloc" : f"Bloc_{bloc_name}",
+                "model": "LSTM_GridSearch",
+                "rmse" : np.nan, "mae": np.nan, "mape": np.nan,
+                "n_test": bloc["n_test"],
+            })
+
+    # Ligne globale (moyenne ponderee par n_test)
+    total_n  = sum(r["n_test"] for r in all_rows)
+    
+    if total_n == 0 or all(np.isnan(r["rmse"]) for r in all_rows):
+        print(f"\n  [WARN] Aucun modele valide trouvé. Vérifier les données ou paramètres.")
+        df_results = pd.DataFrame(all_rows)
+        return df_results
+    
+    # Calculer les moyennes uniquement sur les modèles valides (non-NaN)
+    valid_rows = [r for r in all_rows if not np.isnan(r.get("rmse", np.nan))]
+    if valid_rows:
+        valid_n  = sum(r["n_test"] for r in valid_rows)
+        rmse_gl  = sum(r["rmse"] * r["n_test"] for r in valid_rows) / valid_n if valid_n > 0 else np.nan
+        mae_gl   = sum(r["mae"]  * r["n_test"] for r in valid_rows) / valid_n if valid_n > 0 else np.nan
+        mape_gl  = sum(r["mape"] * r["n_test"] for r in valid_rows) / valid_n if valid_n > 0 else np.nan
+    else:
+        rmse_gl = mae_gl = mape_gl = np.nan
+        valid_n = 0
+    
+    all_rows.append({
+        "bloc": "Global", "model": "LSTM_GridSearch",
+        "rmse": rmse_gl if np.isnan(rmse_gl) else round(rmse_gl, 4),
+        "mae": mae_gl if np.isnan(mae_gl) else round(mae_gl, 4),
+        "mape": mape_gl if np.isnan(mape_gl) else round(mape_gl, 2),
+        "n_test": valid_n,
+    })
+
+    df_results = pd.DataFrame(all_rows)
+
+    # Afficher baseline binome pour comparaison
+    print(f"\n{'='*55}")
+    print(f"  BASELINE A BATTRE (resultats binome)")
+    print(f"  Naif        RMSE global = 1.609")
+    print(f"  SARIMAX+BESI RMSE global = 1.891  <- objectif")
+    if not np.isnan(rmse_gl):
+        print(f"  LSTM_GS     RMSE global = {rmse_gl:.4f}")
+        if rmse_gl < 1.609:
+            print(f"  -> EXCELLENT : tu bats meme le modele naif !")
+        elif rmse_gl < 1.891:
+            print(f"  -> BON : tu bats SARIMAX+BESI")
+        else:
+            print(f"  -> A ameliorer : SARIMAX reste meilleur")
+    else:
+        print(f"  LSTM_GS     RMSE global = NaN (aucun modele valide)")
+    print(f"{'='*55}")
+
+    # Figures si save_fig
+    if save_fig and best_by_bloc:
+        _plot_blocs(best_by_bloc)
+
+    return df_results
+
 
 # ── Point d'entree ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    from pathlib import Path as _P
+    GOLD = ROOT / "data" / "gold" / "model_dataset_monthly.csv"
 
-    _root   = _P(__file__).resolve().parent.parent
-    _ipc    = _root / "data" / "processed" / "ipc_processed.csv"
-    _master = _root / "data" / "processed" / "master_dataset.csv"
-
-    if not (_ipc.exists() and _master.exists()):
-        print("Fichiers manquants -- lancer d'abord : python src/data_pipeline.py")
+    if not GOLD.exists():
+        print("Fichier manquant : data/gold/model_dataset_monthly.csv")
+        print("Demander a la binome ce fichier.")
     else:
-        df_ipc    = pd.read_csv(_ipc,    parse_dates=["date"], index_col="date")
-        df_master = pd.read_csv(_master, parse_dates=["date"], index_col="date")
-        df_ipc.index.freq    = "MS"
-        df_master.index.freq = "MS"
+        df = pd.read_csv(GOLD, parse_dates=["month"], index_col="month")
+        df.index.name = "date"
 
-        ipc  = df_ipc["ipc"]
-        exog = df_master[["besi"]]
+        # Ne PAS faire dropna global — ca supprime des lignes et casse les blocs
+        # Remplacer seulement les chaines vides par NaN
+        df = df.replace('', np.nan)
 
-        # ── LSTM sans exog ────────────────────────────────────────────────────
-        print("\n>>> LSTM (IPC seul)")
-        res_lstm = build_lstm(
-            ipc, exog=None, look_back=12,
-            train_end="2021-12-01", epochs=50, save_fig=True,
+        print(f"Gold dataset charge : {df.shape}")
+        print(f"Periode : {df.index[0].date()} -> {df.index[-1].date()}")
+
+        # Features voulues — on garde seulement celles presentes ET non-vides
+        FEATURES_WANTED = [
+            "behavioral_index_pure_lag1",
+            "trends_prix_alim",
+            "fao_oils_yoy",
+            "fx_yoy",
+        ]
+        # trends_carburant retire car 100% NaN dans ce dataset
+
+        exog_cols = []
+        for c in FEATURES_WANTED:
+            if c not in df.columns:
+                print(f"  [WARN] colonne absente : {c}")
+                continue
+            pct_nan = df[c].isna().mean() * 100
+            if pct_nan > 50:
+                print(f"  [WARN] colonne ignoree (trop de NaN : {pct_nan:.0f}%) : {c}")
+                continue
+            exog_cols.append(c)
+            print(f"  [OK]  {c}  ({pct_nan:.1f}% NaN)")
+
+        print(f"\nFeatures retenues : {exog_cols}")
+        print(f"IPC level disponible : {df['ipc_level'].notna().sum()} mois")
+
+        print(f"\n>>> GridSearch LSTM — Bloc A et Bloc B")
+        df_all_results = run_gridsearch_blocs(
+            df=df,
+            ipc_col="ipc_level",
+            exog_cols=exog_cols if exog_cols else None,
         )
 
-        # ── LSTM avec BESI ────────────────────────────────────────────────────
-        print("\n>>> LSTM + BESI")
-        res_lstm_besi = build_lstm(
-            ipc, exog=exog, look_back=12,
-            train_end="2021-12-01", epochs=50, save_fig=False,
-        )
+        print("\n=== RESULTATS FINAUX PAR BLOC ===")
+        print(df_all_results.to_string(index=False))
 
-        # ── Comparaison finale ────────────────────────────────────────────────
-        # Charger les resultats SARIMA/SARIMAX si dispo (CSV)
-        results = {
-            "LSTM":           res_lstm,
-            "LSTM_BESI":      res_lstm_besi,
-        }
+        # Comparaison avec resultats RobustScaler precedents
+        csv_robust = REP_DIR / 'lstm_results_robust.csv'
+        if csv_robust.exists():
+            df_robust = pd.read_csv(csv_robust)
+            print('\n=== COMPARAISON MinMaxScaler vs RobustScaler ===')
+            df_compare = pd.merge(
+                df_all_results[['bloc','rmse','mae','mape']].rename(
+                    columns={'rmse':'rmse_minmax','mae':'mae_minmax','mape':'mape_minmax'}),
+                df_robust[['bloc','rmse','mae','mape']].rename(
+                    columns={'rmse':'rmse_robust','mae':'mae_robust','mape':'mape_robust'}),
+                on='bloc'
+            )
+            df_compare['gain_rmse%'] = (
+                (df_compare['rmse_robust'] - df_compare['rmse_minmax'])
+                / df_compare['rmse_robust'] * 100
+            ).round(1)
+            print(df_compare.to_string(index=False))
+            # Sauvegarder la comparaison
+            df_compare.to_csv(REP_DIR / 'lstm_scaler_comparison.csv', index=False)
+            print(f"Comparaison sauvegardee : {REP_DIR / 'lstm_scaler_comparison.csv'}")
 
-        # Essayer de recuperer les metriques SARIMA depuis le CSV de comparaison
-        comp_csv = _root / "outputs" / "reports" / "model_comparison.csv"
-        if comp_csv.exists():
-            try:
-                df_prev = pd.read_csv(comp_csv, index_col=0)
-                for mname in df_prev.index:
-                    if "RMSE_h1" in df_prev.columns:
-                        results[mname] = {
-                            "rmse": float(df_prev.loc[mname, "RMSE_h1"]),
-                            "mae":  float(df_prev.loc[mname, "MAE_h1"])
-                                    if "MAE_h1" in df_prev.columns else np.nan,
-                            "mape": float(df_prev.loc[mname, "MAPE_h1"])
-                                    if "MAPE_h1" in df_prev.columns else np.nan,
-                        }
-                print(f"  Metriques precedentes chargees depuis {comp_csv}")
-            except Exception as e:
-                print(f"  [WARN] Lecture model_comparison.csv echouee : {e}")
-
-        print("\n>>> Comparaison finale de tous les modeles")
-        df_final = compare_all_models(results, series=ipc,
-                                       train_end="2021-12-01", save_fig=True)
-        print(df_final.to_string())
+        csv_final = REP_DIR / "lstm_results.csv"
+        df_all_results.to_csv(csv_final, index=False)
+        
+        # Copie avec label RobustScaler pour comparaison future
+        csv_robust = REP_DIR / "lstm_results_robust.csv"
+        df_all_results.copy().assign(scaler="RobustScaler").to_csv(csv_robust, index=False)
+        print(f"Resultats RobustScaler sauvegardes : {csv_robust}")
+        
+        print(f"\nCSV sauvegarde : {csv_final}")

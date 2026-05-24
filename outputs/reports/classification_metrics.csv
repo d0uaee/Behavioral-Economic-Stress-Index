@@ -1,0 +1,7 @@
+Modele,Bloc,Recall,Precision,F1,Specificity,Bal_Accuracy,AUC,AP,TP,FP,TN,FN,n_positifs,n_total,lead_time_mois,Interpretation
+SARIMAX + BESI behavioral,A,1.0,0.3333,0.5,0.0,0.5,0.3281,0.2416,8,16,0,0,8,24,1.0,Sur-alerte (favorable early warning)
+SARIMAX + Hybrid macro,A,1.0,0.3333,0.5,0.0,0.5,0.5625,0.3123,8,16,0,0,8,24,1.0,Sur-alerte (favorable early warning)
+SARIMAX + BESI behavioral,B,1.0,0.6857,0.8136,0.0,0.5,0.3106,0.5685,24,11,0,0,24,35,,Detection parfaite
+SARIMAX + Hybrid macro,B,0.375,0.5294,0.439,0.2727,0.3239,0.3561,0.6769,9,8,3,15,24,35,,Insuffisant - trop de crises manquees
+SARIMAX + BESI behavioral,global,0.0,0.0,0.0,1.0,0.5,0.6584,0.5412,0,0,47,37,37,84,,Insuffisant - trop de crises manquees
+SARIMAX + Hybrid macro,global,0.0,0.0,0.0,1.0,0.5,0.4641,0.4332,0,0,47,37,37,84,,Insuffisant - trop de crises manquees

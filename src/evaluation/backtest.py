@@ -11,7 +11,7 @@ Modèles évalués :
     - Naïf (IPC(t) = IPC(t-1))            lower bound
 
 Métriques :
-    - RMSE, MAE, MAPE  (prévision quantitative)
+    - RMSE, MAE, MAPE, sMAPE, MASE, Theil's U (prévision quantitative)
     - Rapport sur target_high_inflation_regime_t1 → confié à warning_metrics.py
 
 Output :
@@ -24,10 +24,15 @@ import logging
 import warnings
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError:  # pragma: no cover - dépend de l'environnement
+    matplotlib = None
+    plt = None
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +98,51 @@ def _mape(y_true, y_pred):
     if mask.sum() == 0:
         return float("nan")
     return float(np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100)
+
+
+def _smape(y_true, y_pred):
+    """sMAPE = 200 * mean(|y-ŷ| / (|y|+|ŷ|))."""
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    denom = np.abs(y_true) + np.abs(y_pred)
+    mask = denom != 0
+    if mask.sum() == 0:
+        return float("nan")
+    return float(np.mean(200.0 * np.abs(y_true[mask] - y_pred[mask]) / denom[mask]))
+
+
+def _mase(y_true, y_pred):
+    """MASE normalisé par l'erreur naïve one-step sur y_true."""
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    if len(y_true) < 2:
+        return float("nan")
+    scale = np.mean(np.abs(np.diff(y_true)))
+    if scale == 0:
+        return float("nan")
+    return float(np.mean(np.abs(y_true - y_pred)) / scale)
+
+
+def _theils_u(y_true, y_pred, y_pred_naive):
+    """Theil's U = RMSE(modele) / RMSE(naif)."""
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    y_pred_naive = np.array(y_pred_naive)
+
+    rmse_model = _rmse(y_true, y_pred)
+    rmse_naive = _rmse(y_true, y_pred_naive)
+    if rmse_naive == 0:
+        return float("nan")
+    return float(rmse_model / rmse_naive)
+
+
+def _interpret_metrics(mape: float, mase: float, theil_u: float) -> str:
+    notes = []
+    if pd.notna(mape) and mape < 5:
+        notes.append("Erreur faible")
+    if pd.notna(mase) and mase < 1:
+        notes.append("Meilleur que la naive")
+    if pd.notna(theil_u) and theil_u < 1:
+        notes.append("Mieux que la prediction naive")
+    return " | ".join(notes) if notes else "Performance a nuancer"
 
 
 # ─── Prédictions ──────────────────────────────────────────────────────────────
@@ -329,6 +379,9 @@ def run_backtest(
             "rmse": _rmse(y_test, pred_naif),
             "mae":  _mae(y_test,  pred_naif),
             "mape": _mape(y_test, pred_naif),
+            "smape": _smape(y_test, pred_naif),
+            "mase": _mase(y_test, pred_naif),
+            "theils_u": 1.0,
             "n_test": n,
         })
         pred_frames.append(_pred_frame(y_test, pred_naif, lbl, "naif"))
@@ -343,6 +396,9 @@ def run_backtest(
             "rmse": _rmse(y_test, pred_sarima),
             "mae":  _mae(y_test,  pred_sarima),
             "mape": _mape(y_test, pred_sarima),
+            "smape": _smape(y_test, pred_sarima),
+            "mase": _mase(y_test, pred_sarima),
+            "theils_u": _theils_u(y_test, pred_sarima, pred_naif),
             "n_test": n,
         })
         pred_frames.append(_pred_frame(y_test, pred_sarima, lbl, "sarima"))
@@ -359,6 +415,9 @@ def run_backtest(
                 "rmse": _rmse(y_test, pred_beh),
                 "mae":  _mae(y_test,  pred_beh),
                 "mape": _mape(y_test, pred_beh),
+                "smape": _smape(y_test, pred_beh),
+                "mase": _mase(y_test, pred_beh),
+                "theils_u": _theils_u(y_test, pred_beh, pred_naif),
                 "n_test": n,
             })
             pred_frames.append(_pred_frame(y_test, pred_beh, lbl, "sarimax_behavioral"))
@@ -377,6 +436,9 @@ def run_backtest(
                 "rmse": _rmse(y_test, pred_hyb),
                 "mae":  _mae(y_test,  pred_hyb),
                 "mape": _mape(y_test, pred_hyb),
+                "smape": _smape(y_test, pred_hyb),
+                "mase": _mase(y_test, pred_hyb),
+                "theils_u": _theils_u(y_test, pred_hyb, pred_naif),
                 "n_test": n,
             })
             pred_frames.append(_pred_frame(y_test, pred_hyb, lbl, "sarimax_hybrid"))
@@ -391,7 +453,11 @@ def run_backtest(
     logger.info(f"\nRésultats backtest sauvegardés : {output_path}")
 
     # Tableau de synthèse
-    summary = results_df.groupby("model")[["rmse", "mae", "mape"]].mean().round(4)
+    summary = results_df.groupby("model")[["rmse", "mae", "mape", "smape", "mase", "theils_u"]].mean().round(4)
+    summary["interpretation"] = [
+        _interpret_metrics(row["mape"], row["mase"], row["theils_u"])
+        for _, row in summary.iterrows()
+    ]
     summary.to_csv(REPORTS / "backtest_v3_summary.csv")
     logger.info(f"Synthèse sauvegardée : {REPORTS / 'backtest_v3_summary.csv'}")
 
@@ -423,6 +489,9 @@ def _pred_frame(
 
 def _plot_predictions(preds_df: pd.DataFrame, ipc_full: pd.Series) -> None:
     """Trace les prédictions vs réalisé pour chaque bloc × modèle."""
+    if plt is None:
+        logger.info("matplotlib indisponible — graphique de backtest ignoré")
+        return
     blocs  = preds_df["bloc"].unique()
     models = [m for m in ["sarima", "sarimax_behavioral", "sarimax_hybrid", "naif"]
               if m in preds_df["model"].unique()]
@@ -476,20 +545,36 @@ def _print_summary(results_df: pd.DataFrame) -> None:
     print("\n" + "=" * 65)
     print("BACKTEST V3 — RÉSULTATS PAR BLOC")
     print("=" * 65)
-    print(f"{'Bloc':<6} {'Modèle':<25} {'RMSE':>8} {'MAE':>8} {'MAPE%':>8}")
+    print(f"{'Bloc':<6} {'Modèle':<25} {'RMSE':>8} {'MAE':>8} {'MAPE%':>8} {'sMAPE%':>8} {'MASE':>8} {'TheilU':>8}")
     print("-" * 65)
 
     for _, row in results_df.sort_values(["bloc", "rmse"]).iterrows():
         print(f"{row['bloc']:<6} {row['model']:<25} "
               f"{row['rmse']:>8.4f} {row['mae']:>8.4f} "
-              f"{row['mape']:>7.2f}%")
+              f"{row['mape']:>7.2f}% {row['smape']:>7.2f}% "
+              f"{row['mase']:>8.4f} {row['theils_u']:>8.4f}")
 
     print("\nMOYENNE SUR TOUS LES BLOCS :")
-    print(f"{'Modèle':<25} {'RMSE':>8} {'MAE':>8} {'MAPE%':>8}")
-    print("-" * 45)
+    print(f"{'Modèle':<25} {'RMSE':>8} {'MAE':>8} {'MAPE%':>8} {'sMAPE%':>8} {'MASE':>8} {'TheilU':>8}")
+    print("-" * 85)
     for model, grp in results_df.groupby("model"):
+        mape_mean = grp['mape'].mean()
+        mase_mean = grp['mase'].mean()
+        theil_mean = grp['theils_u'].mean()
+        note = _interpret_metrics(mape_mean, mase_mean, theil_mean)
         print(f"{model:<25} {grp['rmse'].mean():>8.4f} "
-              f"{grp['mae'].mean():>8.4f} {grp['mape'].mean():>7.2f}%")
+              f"{grp['mae'].mean():>8.4f} {mape_mean:>7.2f}% "
+              f"{grp['smape'].mean():>7.2f}% {mase_mean:>8.4f} {theil_mean:>8.4f}  {note}")
+
+    # Phrase prête pour l'oral avec le meilleur modèle en MAPE
+    model_mape = results_df.groupby("model")['mape'].mean()
+    best_model = model_mape.idxmin()
+    best_mape = model_mape.loc[best_model]
+    print("\nPHRASE ORALE :")
+    print(
+        f"Notre modèle {best_model} a un MAPE moyen de {best_mape:.2f}%, "
+        f"c'est-a-dire que nous predison l'inflation a {best_mape:.2f}% pres en moyenne."
+    )
     print("=" * 65)
 
 

@@ -1,0 +1,7 @@
+Modele,Signal,Bloc,n_positifs,n_total,ratio_positifs,AUC_ROC,AP,Delta_AUC_AP,F1_optimal,seuil_optimal,Recall_opt,Precision_opt,ROC_biais,AP_verdict
+SARIMAX + BESI behavioral,behavioral,global,32,59,0.542,0.5741,0.5618,0.0123,0.7111,0.3447,1.0,0.5517,AUC ~= AP (classes equilibrees),Acceptable
+SARIMAX + Hybrid macro,hybrid,global,32,59,0.542,0.3762,0.4711,-0.0949,0.7033,0.0,1.0,0.5424,AP > AUC (classe dominante positive),Faible
+SARIMAX + BESI behavioral,behavioral,A,8,24,0.333,0.3281,0.2416,0.0865,0.5161,0.3447,1.0,0.3478,ROC moderement optimiste,Insuffisant
+SARIMAX + Hybrid macro,hybrid,A,8,24,0.333,0.5625,0.3123,0.2502,0.5714,0.381,1.0,0.4,ROC tres optimiste (desequilibre fort),Faible
+SARIMAX + BESI behavioral,behavioral,B,24,35,0.686,0.3106,0.5685,-0.2579,0.8136,0.4517,1.0,0.6857,AP > AUC (classe dominante positive),Acceptable
+SARIMAX + Hybrid macro,hybrid,B,24,35,0.686,0.3561,0.6769,-0.3208,0.8136,0.0,1.0,0.6857,AP > AUC (classe dominante positive),Acceptable

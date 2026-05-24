@@ -1,0 +1,5 @@
+series_variant,test_name,statistic,p_value,stationarity_decision,interpretation_comment
+IPC level,ADF,-0.448,0.9018,Non-stationnaire,"IPC level : H0 non rejetée, la série reste non stationnaire."
+IPC level,KPSS,1.3646,0.01,Non-stationnaire,"IPC level : rejet de H0, la série n'est pas stationnaire autour d'une constante."
+First difference,ADF,-2.5785,0.0975,Non-stationnaire,"First difference : H0 non rejetée, la série reste non stationnaire."
+First difference,KPSS,0.254,0.1,Stationnaire,"First difference : H0 non rejetée, stationnarité compatible avec les données."
