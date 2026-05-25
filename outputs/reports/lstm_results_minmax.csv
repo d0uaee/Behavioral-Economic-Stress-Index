@@ -1,0 +1,4 @@
+bloc,model,rmse,mae,mape,n_test,scaler
+Bloc_A,LSTM_GridSearch_Robust,1.4185,1.2639,1.24,24,MinMaxScaler
+Bloc_B,LSTM_GridSearch_Robust,22.0192,20.7448,16.42,36,MinMaxScaler
+Global,LSTM_GridSearch,13.7789,12.9524,10.35,60,MinMaxScaler
