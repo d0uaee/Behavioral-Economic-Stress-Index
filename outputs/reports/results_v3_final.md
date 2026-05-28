@@ -44,7 +44,8 @@ Justification : ACF/PACF sur diff(IPC,1), saisonnalite mensuelle caracteristique
 | SARIMA(1,1,1)(1,0,1)[12] | 64.85 | 70.08 | -- |
 | SARIMAX + BESI behavioral | **57.09** | **63.06** | **-7.77** |
 
--> SARIMAX+BESI ameliore significativement le fit in-sample (delta AIC < -2 = preference forte).
+-> SARIMAX+BESI ameliore significativement le fit in-sample (delta AIC < -2 = preference forte),
+   mais cela ne suffit pas a etablir une superiorite hors-echantillon face a la baseline naive.
 
 ---
 
@@ -74,6 +75,7 @@ Justification : ACF/PACF sur diff(IPC,1), saisonnalite mensuelle caracteristique
 
 **Interpretation :**
 - SARIMAX+BESI bat SARIMA pur sur tous les criteres globaux (RMSE -0.032 pts, MAPE -0.02%).
+- Le modele naive reste toutefois le meilleur en RMSE global (1.609 vs 1.891 pour SARIMAX+BESI).
 - SARIMAX+Hybrid est le pire des 4 modeles en RMSE global (1.997 > 1.923 SARIMA).
 - Le modele naif (persistance) est competitif : l'IPC est fortement persistant (racine unitaire).
 - Sur le Bloc A (COVID), SARIMAX+BESI gagne +0.106 pts RMSE sur SARIMA.
@@ -148,23 +150,23 @@ Methode : seuil calibre sur TRAIN, evalue sur TEST (aucun data leakage).
 
 | Bloc | Signal | AUC | F1 | Precision | Recall | Lead-time |
 |---|---|---|---|---|---|---|
-| A (COVID) | behavioral | 0.328 | 0.273 | 0.214 | 0.375 | 1 mois |
-| A (COVID) | **hybrid** | **0.562** | **0.563** | **0.500** | **1.000** | 1 mois |
+| A (COVID) | behavioral | 0.328 | 0.500 | 0.333 | 1.000 | 1 mois |
+| A (COVID) | hybrid | 0.562 | 0.500 | 0.333 | 1.000 | 1 mois |
 | **B (Inflation)** | **behavioral** | 0.311 | **0.814** | **0.686** | **1.000** | -- |
 | B (Inflation) | hybrid | 0.356 | 0.439 | 0.529 | 0.375 | -- |
 
-### Global (seuil median des trains)
+### Global (agregation des blocs test avec seuils appris bloc par bloc)
 
 | Signal | AUC | F1 | Recall | Lead-time |
 |---|---|---|---|---|
-| **BESI behavioral** | 0.352 | **0.623** | **0.900** | 1 mois |
-| Hybrid macro | 0.451 | 0.538 | 0.625 | 1 mois |
+| **BESI behavioral** | **0.574** | **0.703** | **1.000** | 1 mois |
+| Hybrid macro | 0.376 | 0.466 | 0.531 | 1 mois |
 
 **Interpretation :**
 - **Bloc B (inflation 2022-2024) behavioral : Recall = 1.00** -- 100% des mois a inflation elevee detectes.
-- Bloc A : le hybrid (macro FAO+FX) est meilleur (Recall=1.00 vs 0.375) -- le choc COVID est d'origine mondiale.
+- Bloc A : les deux signaux sur-alertent et atteignent Recall=1.00, sans vraie specificite.
 - Bloc B : le behavioral est superieur (Recall=1.00 vs 0.375 pour hybrid) -- la crise 2022 est mieux captee par les comportements de recherche marocains que par les indices FAO mondiaux.
-- Global : behavioral bat hybrid sur Recall (0.90 vs 0.625) et F1 (0.623 vs 0.538).
+- Global : behavioral bat hybrid sur Recall (1.00 vs 0.531) et F1 (0.703 vs 0.466).
 
 ---
 
@@ -176,18 +178,18 @@ Methode : seuil calibre sur TRAIN, evalue sur TEST (aucun data leakage).
 |---|---|---|---|
 | AIC SARIMAX vs SARIMA | -7.77 | < -2 | **VALIDE** |
 | RMSE global SARIMAX vs SARIMA | -0.032 | < 0 | **VALIDE** |
-| Recall global behavioral | 0.90 | > 0.80 | **VALIDE** |
+| Recall global behavioral | 1.00 | > 0.80 | **VALIDE** |
 | Recall Bloc B (inflation) | 1.00 | > 0.80 | **VALIDE** |
-| AUC globale | 0.35 | > 0.65 | Non atteint |
+| AUC globale | 0.574 | > 0.65 | Non atteint |
 
--> **H1 partiellement validee** : BESI ameliore le fit in-sample (AIC) et capture 90% des episodes d'inflation. L'AUC globale est limitee par la faiblesse sur le Bloc A (COVID exogene).
+-> **H1 partiellement validee** : BESI ameliore le fit in-sample (AIC) et capture bien les episodes d'inflation sur le bloc 2022-2024. En revanche, la baseline naive reste plus forte en RMSE global, donc la preuve de valeur predictive reste partielle.
 
 ### H2 : hybrid_macro_index ameliore la detection vs behavioral (delta AUC > 0.05)
 
 | Critere | Behavioral | Hybrid | Delta | Statut |
 |---|---|---|---|---|
-| AUC globale | 0.352 | 0.451 | +0.099 | Favorable hybrid |
-| Recall global | **0.900** | 0.625 | **-0.275** | Defavorable hybrid |
+| AUC globale | **0.574** | 0.376 | **-0.198** | Favorable behavioral |
+| Recall global | **1.000** | 0.531 | **-0.469** | Defavorable hybrid |
 | Recall Bloc B | **1.000** | 0.375 | **-0.625** | **REJETE** |
 | RMSE global | **1.891** | 1.997 | +0.106 | Defavorable hybrid |
 
@@ -227,9 +229,11 @@ Methode : seuil calibre sur TRAIN, evalue sur TEST (aucun data leakage).
 > "Notre BESI comportemental, construit uniquement a partir de Google Trends,
 > ameliore le fit in-sample du modele SARIMA de 7.77 points AIC.
 > Il detecte 100% des mois a inflation elevee pendant la crise 2022-2024
-> avec 1 mois d'avance. La rupture structurelle de mars 2022 est massivement
+> et obtient un F1 global de 0.703 sur les periodes test agregees.
+> La rupture structurelle de mars 2022 est massivement
 > significative (p<0.0001, x11.6 l'inflation moyenne).
 > L'ajout des signaux macro FAO et taux de change (H2) degrade la detection
 > sur la periode inflationniste cle : Recall chute de 100% a 37.5%.
-> Les comportements de recherche marocains capturent mieux la specificite
-> locale de la crise que les indices alimentaires mondiaux."
+> En revanche, la baseline naive reste meilleure en RMSE global :
+> le BESI apporte surtout une valeur de detection de regime, pas encore
+> une superiorite robuste en prevision point par point."

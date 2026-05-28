@@ -14,11 +14,11 @@ fonde sur les signaux digitaux comportementaux marocains (Google Trends), et l'i
 **SARIMAX** pour la prevision de l'IPC (Indice des Prix a la Consommation) mensuel du Maroc (2017-2024).
 
 **Resultats principaux (V3 — donnees reelles uniquement) :**
-- SARIMAX + BESI ameliore l'AIC de **-7.77 points** vs SARIMA pur (confirmation statistique)
-- SARIMAX + BESI detecte **100% des mois a inflation elevee** en 2022-2024 (recall = 1.00)
+- SARIMAX + BESI ameliore l'AIC de **-7.77 points** vs SARIMA pur (meilleur fit in-sample)
+- Le signal behavioral detecte **100% des mois a inflation elevee** sur le bloc 2022-2024 (Recall test_B = 1.00)
 - Rupture structurelle 2022 massivement significative : inflation x11.6 (p < 0.0001)
-- H1 **partiellement validee** : signal comportemental utile pour l'alerte precoce, moins pour la precision point-par-point
-- H2 **REJETEE** : l'ajout du signal macro (FAO + MAD/EUR) degrade la detection — Recall Bloc B chute de 1.00 a 0.375
+- H1 **partiellement validee** : signal comportemental utile pour la detection de regime, mais pas pour battre une baseline naive en RMSE global
+- H2 **REJETEE** : l'ajout du signal macro (FAO + MAD/EUR) degrade la detection sur le bloc inflationniste cle
 
 ---
 
@@ -35,7 +35,7 @@ project/
 |   |-- bronze/                  <- Donnees brutes (jamais modifiees)
 |   |   |-- cpi_hcp_monthly_raw.csv   <- IPC HCP Maroc 2017-2024
 |   |   |-- fao_food_price_raw.csv    <- FAO Food Price Index (telecharge)
-|   |   `-- bam_fx_raw.csv            <- MAD/EUR ECB + interpolation lineaire
+|   |   `-- bam_fx_raw.csv            <- MAD/EUR mensuel (source externe documentee)
 |   |-- silver/                  <- Donnees nettoyees et standardisees
 |   |   |-- cpi_monthly.csv           <- IPC + inflation_yoy + mom
 |   |   |-- google_trends_monthly.csv <- Sous-indices Trends normalises 0-1
@@ -121,7 +121,7 @@ python make_dashboard.py
 | HCP Maroc (manuel) | IPC mensuel base 2017=100 | 2017-2024 | OK |
 | Google Trends (pytrends) | 7 mots-cles, geo=MA | 2010-2024 | OK |
 | FAO Food Price Index | 6 sous-indices alimentaires mondiaux | 2010-2024 | OK |
-| ECB / interpolation lineaire | Taux MAD/EUR mensuel | 2010-2024 | OK |
+| Source externe documentee | Taux MAD/EUR mensuel | 2010-2024 | OK |
 | Reddit r/Morocco | NLP inflation | -- | Absent (limite documentee) |
 | YouTube | Commentaires economiques | -- | Absent (limite documentee) |
 
@@ -131,8 +131,8 @@ python make_dashboard.py
 
 ```
 BESI_behavioral (pure) = f(Trends) uniquement
-   Composantes : trends_prix_alim, trends_inflation, trends_carburant, trends_composite
-   Poids : calibres par LassoCV sur train (fallback : poids egaux)
+   Composantes : sous-indices Trends disponibles et non vides uniquement
+   Poids : calibres par LassoCV sur train (fallback : poids egaux sur colonnes disponibles)
    Regle : aucune composante IPC -> zero data leakage
 
 BESI_hybrid (macro) = f(BESI_pure + FAO_fpi_yoy + fx_yoy)  [necessite FAO/FX]
@@ -191,9 +191,9 @@ detecteur de regime, pas comme predicteur causal lineaire.
 
 | Bloc | AUC | F1 | Recall | Lead-time |
 |---|---|---|---|---|
-| Bloc A – COVID | 0.328 | 0.273 | 0.375 | 1 mois |
+| Bloc A – COVID | 0.328 | 0.500 | 1.000 | 1 mois |
 | **Bloc B – Inflation 2022-2024** | 0.311 | **0.814** | **1.000** | — |
-| Global | 0.35 | 0.62 | 0.90 | 1 mois |
+| Global (tests agrégés) | **0.574** | **0.703** | **1.000** | 1 mois |
 
 ---
 
@@ -205,20 +205,20 @@ detecteur de regime, pas comme predicteur causal lineaire.
 |---|---|---|---|
 | Delta AIC SARIMAX vs SARIMA | **-7.77** | < -2 | **Valide** |
 | RMSE global SARIMAX vs SARIMA | -0.032 pts | < 0 | **Valide** |
-| Recall global episodes inflation | **0.90** | > 0.80 | **Valide** |
+| Recall global episodes inflation | **1.00** | > 0.80 | **Valide** |
 | Recall Bloc B (inflation 2022-2024) | **1.00** | > 0.80 | **Valide** |
-| AUC globale | 0.35 | > 0.65 | Non atteint |
+| AUC globale | 0.574 | > 0.65 | Non atteint |
 
 **Verdict H1 : partiellement validee.** Le signal comportemental ameliore
-le fit statistique et detecte 90% des episodes d'inflation avec 1 mois d'avance.
-L'AUC < 0.65 est penalisee par le Bloc A (choc COVID exogene non capture).
+le fit statistique vs SARIMA et reste utile en detection sur le bloc inflationniste,
+mais ne bat pas la baseline naive en RMSE global.
 
 ### H2 : hybrid_macro_index ameliore la detection (delta AUC > 0.05)
 
 | Critere | Behavioral | Hybrid | Delta | Statut |
 |---|---|---|---|---|
-| AUC globale | 0.352 | 0.451 | +0.099 | Favorable hybrid |
-| Recall global | **0.900** | 0.625 | -0.275 | Defavorable hybrid |
+| AUC globale | **0.574** | 0.376 | **-0.198** | Favorable behavioral |
+| Recall global | **1.000** | 0.531 | -0.469 | Defavorable hybrid |
 | Recall Bloc B | **1.000** | 0.375 | **-0.625** | **REJETE** |
 | RMSE global | **1.891** | 1.997 | +0.106 | Defavorable hybrid |
 
