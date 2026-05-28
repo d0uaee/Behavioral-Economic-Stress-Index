@@ -199,7 +199,37 @@ Methode : seuil calibre sur TRAIN, evalue sur TEST (aucun data leakage).
 
 ---
 
-## 12. Fichiers Produits
+## 12. Extension NLP Presse Marocaine (Exploratoire)
+
+Une extension NLP v2 a ete testee a partir de textes Hespress collectes via l'API WordPress JSON.
+Le signal utilise `title + excerpt` et doit donc etre interprete comme un **signal presse editorial**
+et non comme un vrai signal de commentaires lecteurs.
+
+### Couverture
+
+| Indicateur | Valeur |
+|---|---|
+| Periode NLP | 2017-01 -> 2024-12 |
+| Textes collectes | 5 788 |
+| Couverture mensuelle reelle | 96/96 mois |
+| Imputation | 0 mois |
+
+### Verdict
+
+| Element | Valeur |
+|---|---|
+| alpha (BESI Trends) | 1.000 |
+| beta (signal NLP) | 0.000 |
+| Verdict | **CAS C** |
+
+Interpretation :
+- le Lasso assigne un poids nul au signal NLP conditionnellement au BESI Trends ;
+- le signal presse enrichit l'interpretation locale mais **n'ajoute pas de valeur predictive conditionnelle** sur cet echantillon ;
+- il ne doit donc pas etre integre au BESI principal dans la version finale.
+
+---
+
+## 13. Fichiers Produits
 
 ### Figures cles
 | Fichier | Description |
@@ -221,10 +251,13 @@ Methode : seuil calibre sur TRAIN, evalue sur TEST (aucun data leakage).
 | `warning_metrics_v3.csv` | AUC/F1/Recall par bloc et signal (6 lignes) |
 | `granger_besi_v3.csv` | Test de causalite de Granger |
 | `besi_v3_behavioral_weights.csv` | Poids des composantes BESI |
+| `nlp_besi_comparison.csv` | Comparaison BESI v1 vs extension NLP |
+| `nlp_lasso_weights.csv` | Poids alpha/beta de l'extension NLP |
+| `NLP_RESULTS.md` | Rapport honnete de l'extension presse/NLP |
 
 ---
 
-## 13. Phrase de Conclusion (Oral)
+## 14. Phrase de Conclusion (Oral)
 
 > "Notre BESI comportemental, construit uniquement a partir de Google Trends,
 > ameliore le fit in-sample du modele SARIMA de 7.77 points AIC.

@@ -54,6 +54,11 @@ project/
 |   |   |-- cpi.py
 |   |   |-- trends.py
 |   |   `-- macro.py
+|   |-- nlp/                     <- Extension NLP presse marocaine (exploratoire)
+|   |   |-- scraper_hespress.py
+|   |   |-- preprocess_darija.py
+|   |   |-- sentiment_scorer.py
+|   |   `-- besi_v2.py
 |   |-- features/
 |   |   `-- indexes.py          <- Construction indices BESI (pure + hybrid)
 |   |-- gold/
@@ -122,6 +127,7 @@ python make_dashboard.py
 | Google Trends (pytrends) | 7 mots-cles, geo=MA | 2010-2024 | OK |
 | FAO Food Price Index | 6 sous-indices alimentaires mondiaux | 2010-2024 | OK |
 | Source externe documentee | Taux MAD/EUR mensuel | 2010-2024 | OK |
+| Hespress (API WordPress) | Titres + extraits economiques | 2017-2024 | Extension NLP exploratoire |
 | Reddit r/Morocco | NLP inflation | -- | Absent (limite documentee) |
 | YouTube | Commentaires economiques | -- | Absent (limite documentee) |
 
@@ -257,6 +263,40 @@ les comportements de recherche Google sont plus directement relies au stress des
 | `granger_besi_v3.csv` | Test de causalite de Granger (lags 1-4) |
 | `besi_v3_behavioral_weights.csv` | Poids composantes BESI behavioral |
 | `results_v3_final.md` | Rapport complet avec H1/H2 et phrase de conclusion |
+| `nlp_besi_comparison.csv` | Comparaison BESI v1 vs extension NLP |
+| `nlp_lasso_weights.csv` | Poids alpha/beta du BESI v2 |
+| `NLP_RESULTS.md` | Rapport honnete de l'extension presse/NLP |
+
+---
+
+## Extension NLP Presse Marocaine (Exploratoire)
+
+Une extension NLP v2 a ete testee **sans modifier le pipeline V3 principal**.
+L'objectif etait d'ajouter un signal textuel local au BESI comportemental existant.
+
+**Source utilisee :**
+- Hespress via API WordPress JSON
+- signal base sur `title + excerpt`
+- periode 2017-2024
+- 5 788 textes collectes
+- couverture complete : **96/96 mois**
+
+**Nature du signal :**
+- il s'agit d'un **signal presse editorial**, pas d'un signal de commentaires lecteurs
+- il doit donc etre interprete comme un indicateur de pression mediatique economique locale
+
+**Sorties produites :**
+- `data/bronze/hespress_raw.csv`
+- `data/silver/hespress_clean.csv`
+- `data/silver/sentiment_monthly.csv`
+- `data/silver/besi_v2_variants_monthly.csv`
+
+**Verdict honnete :**
+- le Lasso attribue `alpha=1.0` au BESI Trends et `beta=0.0` au signal NLP
+- donc **le signal NLP n'apporte pas d'information conditionnelle supplementaire**
+- le resultat est classe **CAS C** dans `results/NLP_RESULTS.md`
+
+En pratique, le signal presse a ete teste proprement et documente, mais il ne justifie pas d'etre integre au BESI principal sur cet echantillon.
 
 ---
 
