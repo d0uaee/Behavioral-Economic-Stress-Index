@@ -39,6 +39,16 @@ def _normalise_0_1(s: pd.Series) -> pd.Series:
     return (s - mn) / (mx - mn)
 
 
+def _select_available_feature_cols(df: pd.DataFrame, candidate_cols: list[str], family: str) -> list[str]:
+    available = [c for c in candidate_cols if c in df.columns and df[c].notna().any()]
+    dropped = [c for c in candidate_cols if c not in available]
+    if dropped:
+        logger.warning(
+            f"{family} : colonnes ignorées car absentes ou entièrement vides : {dropped}"
+        )
+    return available
+
+
 def build_behavioral_index_pure(
     trends_df:   pd.DataFrame,
     train_end:   str = LASSO_TRAIN_END,
@@ -65,6 +75,7 @@ def build_behavioral_index_pure(
     feature_cols = [c for c in trends_df.columns
                     if c.startswith("trends_") and c != "trends_composite"
                     and "n_keywords" not in c]
+    feature_cols = _select_available_feature_cols(trends_df, feature_cols, "behavioral_index_pure")
 
     if not feature_cols:
         raise ValueError(
@@ -159,7 +170,6 @@ def build_behavioral_index_pure(
         raise ValueError(f"method doit être 'lasso', 'equal' ou 'pca'. Reçu : {method}")
 
     # Normalisation 0-1 finale
-    idx = build_behavioral_index_pure  # just to avoid redefinition
     result = _normalise_0_1(raw).rename("behavioral_index_pure")
 
     # Log des poids
@@ -205,6 +215,7 @@ def build_hybrid_macro_index(
     macro_feature_cols = [c for c in macro_df.columns
                           if any(kw in c for kw in ["yoy", "fx_yoy"])
                           and c not in ["inflation_yoy", "inflation_mom"]]
+    macro_feature_cols = _select_available_feature_cols(macro_df, macro_feature_cols, "hybrid_macro_index")
 
     if not macro_feature_cols:
         logger.warning("Aucune feature macro YoY trouvée → retour behavioral_index_pure")

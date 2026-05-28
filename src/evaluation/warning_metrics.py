@@ -108,6 +108,37 @@ def _metrics_at_threshold(
     }
 
 
+def _metrics_from_binary_pred(
+    y_true: np.ndarray,
+    pred:   np.ndarray,
+) -> dict:
+    """
+    Variante utile quand on agrège des prédictions issues de seuils calibrés
+    différemment bloc par bloc.
+    """
+    pred = np.asarray(pred).astype(int)
+    tp   = int(((pred == 1) & (y_true == 1)).sum())
+    fp   = int(((pred == 1) & (y_true == 0)).sum())
+    fn   = int(((pred == 0) & (y_true == 1)).sum())
+    tn   = int(((pred == 0) & (y_true == 0)).sum())
+
+    precision   = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall      = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    f1          = 2 * precision * recall / (precision + recall) \
+                  if (precision + recall) > 0 else 0.0
+    bal_acc     = (recall + specificity) / 2.0
+
+    return {
+        "recall":            float(recall),
+        "precision":         float(precision),
+        "f1":                float(f1),
+        "specificity":       float(specificity),
+        "balanced_accuracy": float(bal_acc),
+        "tp": tp, "fp": fp, "tn": tn, "fn": fn,
+    }
+
+
 # ─── Courbe ROC maison ────────────────────────────────────────────────────────
 
 def _compute_roc(y_true: np.ndarray, scores: np.ndarray):
@@ -364,6 +395,10 @@ def compute_warning_metrics(
     rows     = []   # métriques par bloc
     roc_data = {}   # pour les graphiques ROC globaux
     pr_data  = {}   # pour les graphiques PR globaux
+    global_eval_store = {
+        sig_label: {"y_true": [], "scores": [], "pred": [], "dates": [], "signal_thresholds": [], "stress_thresholds": []}
+        for sig_label in signals
+    }
 
     # Fenêtres d'évaluation (adaptées automatiquement SHORT ou FULL)
     from src.gold.build_model_dataset import EVAL_WINDOWS, SHORT_EVAL_WINDOWS
@@ -455,45 +490,44 @@ def compute_warning_metrics(
                 "Interpretation":   interp,
             })
 
-    # ── Rapport global (seuil = médiane des trains) ───────────────────────────
+            global_eval_store[sig_label]["y_true"].extend(y_te.tolist())
+            global_eval_store[sig_label]["scores"].extend(scores_te.tolist())
+            global_eval_store[sig_label]["pred"].extend((scores_te >= best_t).astype(int).tolist())
+            global_eval_store[sig_label]["dates"].extend(list(y_test.index))
+            global_eval_store[sig_label]["signal_thresholds"].append(float(best_t))
+            global_eval_store[sig_label]["stress_thresholds"].append(float(train_threshold))
+
+    # ── Rapport global : agrégation des blocs test avec leurs seuils appris sur train ──
     for sig_label, sig_col in signals.items():
         if sig_col not in gold.columns:
             continue
 
-        global_train_mask = gold["split_label"].str.contains("train_B", na=False)
-        global_threshold = _stress_regime_threshold(gold, global_train_mask, source_col=yoy_col)
-        y_all = (shifted_yoy.dropna() >= global_threshold).astype(int)
-        y_all.index.name = "month"
-        scores_all = (
-            gold[sig_col]
-            .reindex(y_all.index)
-            .ffill().bfill().fillna(0)
-            .values
-        )
+        store = global_eval_store.get(sig_label, {})
+        if not store or not store["y_true"]:
+            continue
 
-        tprs_g, fprs_g, _, auc_g = _compute_roc(y_all.values, scores_all)
-        precs_g, recs_g, _       = _compute_pr(y_all.values, scores_all)
+        y_all = np.array(store["y_true"], dtype=int)
+        scores_all = np.array(store["scores"], dtype=float)
+        pred_all = np.array(store["pred"], dtype=int)
+
+        tprs_g, fprs_g, _, auc_g = _compute_roc(y_all, scores_all)
+        precs_g, recs_g, _       = _compute_pr(y_all, scores_all)
         ap_g                     = _compute_ap(precs_g, recs_g)
 
         roc_data[sig_label] = (fprs_g, tprs_g, auc_g)
         pr_data[sig_label]  = (recs_g, precs_g, ap_g)
 
-        # Seuil global de stress = seuil appris sur le train pré-2022 (Bloc B)
-        global_t = float(global_threshold)
+        median_signal_t = float(np.median(store["signal_thresholds"]))
+        median_stress_t = float(np.median(store["stress_thresholds"]))
+        m_g = _metrics_from_binary_pred(y_all, pred_all)
 
-        m_g = _metrics_at_threshold(y_all.values, scores_all, global_t)
-
-        test_mask_all = gold["split_label"].str.contains("test_", na=False)
-        gold_test_all = gold[test_mask_all]
-        test_all_target = y_all.loc[gold_test_all.index.intersection(y_all.index)]
-        test_all_scores = pd.Series(
-            gold[sig_col].reindex(test_all_target.index).ffill().bfill().fillna(0).values,
-            index=test_all_target.index,
-        )
+        test_index = pd.DatetimeIndex(store["dates"])
+        test_all_target = pd.Series(y_all, index=test_index).sort_index()
+        test_all_scores = pd.Series(scores_all, index=test_index).sort_index()
         lt_g = _lead_time(
             test_all_target,
             test_all_scores,
-            global_t,
+            median_signal_t,
         )
 
         interp_g = _interpret_metrics(
@@ -507,9 +541,9 @@ def compute_warning_metrics(
             "Bloc":             "global",
             "scope":            "global",
             "signal_col":       sig_col,
-            "threshold_from":   "train_B_75p",
-            "seuil":            round(global_t, 4),
-            "stress_threshold_yoy": round(global_t, 4),
+            "threshold_from":   "per_block_train_median",
+            "seuil":            round(median_signal_t, 4),
+            "stress_threshold_yoy": round(median_stress_t, 4),
             "stress_threshold_percentile": STRESS_REGIME_PERCENTILE,
             "Recall":           round(m_g["recall"],            4),
             "Precision":        round(m_g["precision"],         4),
@@ -520,7 +554,7 @@ def compute_warning_metrics(
             "AP":               round(ap_g,                     4),
             "TP": m_g["tp"], "FP": m_g["fp"],
             "TN": m_g["tn"], "FN": m_g["fn"],
-            "n_positifs":       int(y_all.values.sum()),
+            "n_positifs":       int(y_all.sum()),
             "n_total":          len(y_all),
             "lead_time_mois":   round(lt_g, 2) if not np.isnan(lt_g) else float("nan"),
             "Interpretation":   interp_g,
