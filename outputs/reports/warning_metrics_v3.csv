@@ -3,5 +3,5 @@ test_A,behavioral,behavioral_index_pure_lag1,train_A,0.2401,2.3191,75,0.3281,0.5
 test_A,hybrid,hybrid_macro_index_lag1,train_A,0.2348,2.3191,75,0.5625,0.5,0.3333,1.0,1.0,8,16,0,8,24
 test_B,behavioral,behavioral_index_pure_lag1,train_B,0.3447,2.4169,75,0.3106,0.8136,0.6857,1.0,,24,11,0,24,35
 test_B,hybrid,hybrid_macro_index_lag1,train_B,0.2348,2.4169,75,0.3561,0.439,0.5294,0.375,,9,8,15,24,35
-global,behavioral,behavioral_index_pure_lag1,train_B_75p,2.4169,2.4169,75,0.6584,0.0,0.0,0.0,,0,0,37,37,84
-global,hybrid,hybrid_macro_index_lag1,train_B_75p,2.4169,2.4169,75,0.4641,0.0,0.0,0.0,,0,0,37,37,84
+global,behavioral,behavioral_index_pure_lag1,per_block_train_median,0.2924,2.368,75,0.5741,0.7033,0.5424,1.0,1.0,32,27,0,32,59
+global,hybrid,hybrid_macro_index_lag1,per_block_train_median,0.2348,2.368,75,0.3762,0.4658,0.4146,0.5312,1.0,17,24,15,32,59
