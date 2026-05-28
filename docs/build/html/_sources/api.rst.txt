@@ -7,7 +7,7 @@ Modules principaux
 src/deep_learning.py
 ~~~~~~~~~~~~~~~~~~~~~
 
-Module de Deep Learning developpe par **Adama Basse**.
+Module de Deep Learning du projet.
 
 .. code-block:: python
 

@@ -1,16 +1,16 @@
-Modeles Deep Learning (partie Adama Basse)
-==========================================
+Modeles Deep Learning
+======================
 
 Introduction
 ------------
 
-Cette section documente la partie Deep Learning du projet, developpee
-par **Adama Basse**. L'objectif est de tester si un modele LSTM optimise
-peut capturer les non-linearites de la relation BESI-IPC que les modeles
-statistiques lineaires (SARIMA/SARIMAX) ne peuvent pas detecter.
+Cette section documente la partie Deep Learning du projet. L'objectif
+est de tester si un modele LSTM optimise peut capturer les non-linearites
+de la relation BESI-IPC que les modeles statistiques lineaires
+(SARIMA/SARIMAX) ne peuvent pas detecter.
 
 **Motivation issue du test de Granger :** La causalite de Granger n'est
-pas significative lineairement (p > 0.62). Cela sugere une relation
+pas significative lineairement (p > 0.62). Cela suggere une relation
 non-lineaire — terrain naturel pour les reseaux de neurones recurrents.
 
 Architecture LSTM
@@ -33,10 +33,10 @@ Architecture retenue apres GridSearch :
    ])
    model.compile(optimizer=Adam(learning_rate=lr), loss="mse")
 
-Preparaton des features
-------------------------
+Preparation des features
+-------------------------
 
-En suivant les conseils de la binome, les features d'entree sont :
+Les features d'entree sont selectionnees pour eviter tout data leakage :
 
 .. code-block:: python
 
@@ -120,34 +120,34 @@ Parametres fixes :
 - **Validation split :** 15% du train
 - **shuffle :** False (obligatoire pour les series temporelles)
 
-Protocole d'evaluation — meme que SARIMA
------------------------------------------
+Protocole d'evaluation
+-----------------------
 
-Pour permettre une comparaison juste avec les modeles statistiques,
-le meme protocole walk-forward sur deux blocs est utilise :
+Le meme protocole walk-forward sur deux blocs que les modeles
+statistiques est utilise pour une comparaison juste :
 
 .. code-block:: text
 
    BLOC A — Periode COVID
-     Train : janvier 2017 → decembre 2019  (36 mois)
-     Test  : janvier 2020 → decembre 2021  (24 pas)
+     Train : janvier 2017 -> decembre 2019  (36 mois)
+     Test  : janvier 2020 -> decembre 2021  (24 pas)
 
    BLOC B — Periode Inflation
-     Train : janvier 2017 → decembre 2021  (60 mois)
-     Test  : janvier 2022 → decembre 2024  (36 pas)
+     Train : janvier 2017 -> decembre 2021  (60 mois)
+     Test  : janvier 2022 -> decembre 2024  (36 pas)
 
 Resultats du GridSearch LSTM
 -------------------------------
 
-+-----------------------------+---------+---------+-------+
-| Modele / Bloc               | RMSE    | MAE     | MAPE  |
-+=============================+=========+=========+=======+
-| LSTM GridSearch — Bloc A    | **1.382** | 1.213 | 1.19% |
-+-----------------------------+---------+---------+-------+
-| LSTM GridSearch — Bloc B    | 19.738  | 18.544  | 14.67%|
-+-----------------------------+---------+---------+-------+
-| LSTM GridSearch — Global    | 12.396  | 11.611  | 9.28% |
-+-----------------------------+---------+---------+-------+
++-----------------------------+---------+---------+--------+
+| Modele / Bloc               | RMSE    | MAE     | MAPE   |
++=============================+=========+=========+========+
+| LSTM GridSearch — Bloc A    | 1.382   | 1.213   | 1.19%  |
++-----------------------------+---------+---------+--------+
+| LSTM GridSearch — Bloc B    | 19.738  | 18.544  | 14.67% |
++-----------------------------+---------+---------+--------+
+| LSTM GridSearch — Global    | 12.396  | 11.611  | 9.28%  |
++-----------------------------+---------+---------+--------+
 
 Comparaison avec les baselines :
 
@@ -158,7 +158,7 @@ Comparaison avec les baselines :
 +-----------------------------+---------+---------------------------+
 | SARIMAX + BESI              | 1.891   | Meilleur statistique      |
 +-----------------------------+---------+---------------------------+
-| **LSTM — Bloc A**           | **1.382** | **Bat le naif (+14%)** |
+| LSTM — Bloc A               | 1.382   | Bat le naif (+14%)        |
 +-----------------------------+---------+---------------------------+
 | LSTM — Bloc B               | 19.738  | Effondrement              |
 +-----------------------------+---------+---------------------------+
@@ -174,46 +174,30 @@ non-lineaires invisibles pour SARIMA.
 
 **Bloc B (Inflation 2022-2024) — LSTM en echec**
 
-RMSE = 19.738, soit **12x plus eleve que SARIMAX**. Pourquoi ?
+RMSE = 19.738, soit 12x plus eleve que SARIMAX. Deux raisons :
 
-1. **Rupture structurelle hors distribution :**
-   Le modele est entraine sur 2017-2021 ou l'IPC monte de ~0.5%/an.
-   En 2022 l'IPC monte de 6-8%/an. C'est 12x plus rapide — le LSTM
-   n'a jamais vu ca.
+1. **Rupture structurelle hors distribution :** le modele est entraine
+   sur 2017-2021 ou l'IPC monte de ~0.5%/an. En 2022 l'IPC monte
+   de 6-8%/an — 12x plus rapide — jamais vu pendant l'entrainement.
 
-2. **Probleme du scaler :**
-   Avec MinMaxScaler calibre sur 2017-2021, les valeurs de 2022-2024
-   sortent de la plage [0, 1] → extrapolation catastrophique.
-   Le passage au RobustScaler n'ameliore pas significativement
-   (RMSE Bloc B = 22.02 avec RobustScaler).
-
-3. **Taille du dataset insuffisante :**
-   60 observations d'entrainement sont structurellement insuffisantes
-   pour un reseau LSTM. La litterature recommande plusieurs milliers
-   de sequences.
+2. **Taille du dataset insuffisante :** 60 observations d'entrainement
+   sont structurellement insuffisantes pour un reseau LSTM.
 
 Autres modeles testes
 ----------------------
 
-Avant le GridSearch LSTM, d'autres approches ont ete evaluees :
++--------------------------------+-------+------------------------------+
+| Modele                         | RMSE  | Raison d'echec               |
++================================+=======+==============================+
+| LSTM simple (window=12)        | 0.021 | Non optimise                 |
++--------------------------------+-------+------------------------------+
+| LSTM sliding window (3-18 mois)| 0.049 | Pire que LSTM original       |
++--------------------------------+-------+------------------------------+
+| Prophet (Facebook)             | 0.061 | Serie trop reguliere         |
++--------------------------------+-------+------------------------------+
 
-+--------------------------------+-------+-------------------------------+
-| Modele                         | RMSE  | Raison d'echec                |
-+================================+=======+===============================+
-| LSTM simple (window=12)        | 0.021 | Non optimise                  |
-+--------------------------------+-------+-------------------------------+
-| LSTM sliding window (3-18 mois)| 0.049 | Pire que LSTM original        |
-+--------------------------------+-------+-------------------------------+
-| Prophet (Facebook)             | 0.061 | Serie trop reguliere          |
-+--------------------------------+-------+-------------------------------+
-
-.. note::
-
-   Ces RMSE sont en echelle normalisee (IPC entre 0 et 1), differente
-   des RMSE du GridSearch final (IPC en valeur absolue, base 2017=100).
-
-Conclusion de la partie Deep Learning
----------------------------------------
+Conclusion
+-----------
 
 Le GridSearch LSTM sur 96 combinaisons revele un comportement
 **asymetrique et instructif** :
@@ -221,12 +205,8 @@ Le GridSearch LSTM sur 96 combinaisons revele un comportement
    *"Le LSTM apporte de la valeur sur les periodes de relative stabilite
    (Bloc A : RMSE=1.38, meilleur que le naif de 14%), mais s'effondre
    sur les periodes de rupture structurelle majeure (Bloc B : RMSE=19.74).
-   Ce resultat confirme que 60 observations avec une rupture structurelle
-   de magnitude x11.6 rendent le deep learning inapplicable hors
-   distribution. SARIMAX reste superieur sur les series macroeconomiques
-   courtes avec choc structurel — les modeles statistiques dominent
-   car ils modelisent explicitement la structure saisonniere sans
-   supposer de stationnarite de la distribution."*
+   Ce resultat confirme que SARIMAX reste superieur sur les series
+   macroeconomiques courtes avec choc structurel."*
 
 Fichiers generes
 -----------------
@@ -234,15 +214,11 @@ Fichiers generes
 +----------------------------------------------+-------------------------------------+
 | Fichier                                      | Description                         |
 +==============================================+=====================================+
-| ``outputs/reports/lstm_results.csv``         | Resultats par bloc (format binome)  |
+| ``outputs/reports/lstm_results.csv``         | Resultats par bloc                  |
 +----------------------------------------------+-------------------------------------+
 | ``outputs/reports/gridsearch_lstm_blocA.csv``| Top combinaisons Bloc A             |
 +----------------------------------------------+-------------------------------------+
 | ``outputs/reports/gridsearch_lstm_blocB.csv``| Top combinaisons Bloc B             |
-+----------------------------------------------+-------------------------------------+
-| ``outputs/reports/lstm_results_minmax.csv``  | Resultats avec MinMaxScaler         |
-+----------------------------------------------+-------------------------------------+
-| ``outputs/reports/lstm_scaler_comparison.csv``| Comparaison MinMax vs Robust       |
 +----------------------------------------------+-------------------------------------+
 | ``outputs/reports/lstm_best_params.json``    | Meilleurs hyperparametres JSON      |
 +----------------------------------------------+-------------------------------------+

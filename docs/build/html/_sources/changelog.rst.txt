@@ -26,7 +26,7 @@ Version 3.0 — Mai 2026 (actuelle)
 - Correlation BESI-inflation sur residus STL (vs brute en V2)
 - H2 testee et rejetee (signal macro FAO+FX non utile)
 
-**Deep Learning (Adama Basse)**
+**Deep Learning **
 
 - GridSearch LSTM : 96 combinaisons d'hyperparametres
 - Encodage cyclique du mois (month_sin / month_cos)

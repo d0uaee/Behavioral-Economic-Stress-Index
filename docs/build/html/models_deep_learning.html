@@ -125,17 +125,17 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Modeles Deep Learning</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#architecture-lstm">Architecture LSTM</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#preparaton-des-features">Preparaton des features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#preparation-des-features">Preparation des features</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#encodage-cyclique-du-mois">Encodage cyclique du mois</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#normalisation-sans-data-leakage">Normalisation sans data leakage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gridsearch-des-hyperparametres">GridSearch des hyperparametres</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#protocole-d-evaluation-meme-que-sarima">Protocole d’evaluation — meme que SARIMA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#protocole-d-evaluation">Protocole d’evaluation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#resultats-du-gridsearch-lstm">Resultats du GridSearch LSTM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#analyse-du-comportement-asymetrique">Analyse du comportement asymetrique</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#autres-modeles-testes">Autres modeles testes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#conclusion-de-la-partie-deep-learning">Conclusion de la partie Deep Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#conclusion">Conclusion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#fichiers-generes">Fichiers generes</a></li>
 </ul>
 </li>
@@ -155,7 +155,7 @@
 <li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-des-resultats-v3">Tableau de bord des resultats V3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#rupture-structurelle-2022">Rupture structurelle 2022</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#early-warning-alerte-precoce">Early Warning — Alerte precoce</a></li>
-<li class="toctree-l2"><a class="reference internal" href="results.html#performances-modeles-statistiques-par-bloc">Performances modeles statistiques par bloc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#performances-modeles-statistiques">Performances modeles statistiques</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#performances-lstm-par-bloc">Performances LSTM par bloc</a></li>
 </ul>
 </li>
@@ -235,7 +235,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Modeles Deep Learning (partie Adama Basse)</li>
+      <li class="breadcrumb-item active">Modeles Deep Learning</li>
       <li class="wy-breadcrumbs-aside">
               <a href="https://github.com/d0uaee/Behavioral-Economic-Stress-Index/blob/main/docs/source/models_deep_learning.rst" class="fa fa-github"> Éditer sur GitHub</a>
       </li>
@@ -245,16 +245,16 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="modeles-deep-learning-partie-adama-basse">
-<h1>Modeles Deep Learning (partie Adama Basse)<a class="headerlink" href="#modeles-deep-learning-partie-adama-basse" title="Lien vers cette rubrique"></a></h1>
+  <section id="modeles-deep-learning">
+<h1>Modeles Deep Learning<a class="headerlink" href="#modeles-deep-learning" title="Lien vers cette rubrique"></a></h1>
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Lien vers cette rubrique"></a></h2>
-<p>Cette section documente la partie Deep Learning du projet, developpee
-par <strong>Adama Basse</strong>. L’objectif est de tester si un modele LSTM optimise
-peut capturer les non-linearites de la relation BESI-IPC que les modeles
-statistiques lineaires (SARIMA/SARIMAX) ne peuvent pas detecter.</p>
+<p>Cette section documente la partie Deep Learning du projet. L’objectif
+est de tester si un modele LSTM optimise peut capturer les non-linearites
+de la relation BESI-IPC que les modeles statistiques lineaires
+(SARIMA/SARIMAX) ne peuvent pas detecter.</p>
 <p><strong>Motivation issue du test de Granger :</strong> La causalite de Granger n’est
-pas significative lineairement (p &gt; 0.62). Cela sugere une relation
+pas significative lineairement (p &gt; 0.62). Cela suggere une relation
 non-lineaire — terrain naturel pour les reseaux de neurones recurrents.</p>
 </section>
 <section id="architecture-lstm">
@@ -274,9 +274,9 @@ series temporelles.</p>
 </pre></div>
 </div>
 </section>
-<section id="preparaton-des-features">
-<h2>Preparaton des features<a class="headerlink" href="#preparaton-des-features" title="Lien vers cette rubrique"></a></h2>
-<p>En suivant les conseils de la binome, les features d’entree sont :</p>
+<section id="preparation-des-features">
+<h2>Preparation des features<a class="headerlink" href="#preparation-des-features" title="Lien vers cette rubrique"></a></h2>
+<p>Les features d’entree sont selectionnees pour eviter tout data leakage :</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">features</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;ipc_level&quot;</span><span class="p">,</span>                       <span class="c1"># serie cible (valeurs passees)</span>
     <span class="s2">&quot;behavioral_index_pure_lag1&quot;</span><span class="p">,</span>      <span class="c1"># BESI decale d&#39;1 mois</span>
@@ -361,17 +361,17 @@ sur les deux blocs d’evaluation.</p>
 <li><p><strong>shuffle :</strong> False (obligatoire pour les series temporelles)</p></li>
 </ul>
 </section>
-<section id="protocole-d-evaluation-meme-que-sarima">
-<h2>Protocole d’evaluation — meme que SARIMA<a class="headerlink" href="#protocole-d-evaluation-meme-que-sarima" title="Lien vers cette rubrique"></a></h2>
-<p>Pour permettre une comparaison juste avec les modeles statistiques,
-le meme protocole walk-forward sur deux blocs est utilise :</p>
+<section id="protocole-d-evaluation">
+<h2>Protocole d’evaluation<a class="headerlink" href="#protocole-d-evaluation" title="Lien vers cette rubrique"></a></h2>
+<p>Le meme protocole walk-forward sur deux blocs que les modeles
+statistiques est utilise pour une comparaison juste :</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>BLOC A — Periode COVID
-  Train : janvier 2017 → decembre 2019  (36 mois)
-  Test  : janvier 2020 → decembre 2021  (24 pas)
+  Train : janvier 2017 -&gt; decembre 2019  (36 mois)
+  Test  : janvier 2020 -&gt; decembre 2021  (24 pas)
 
 BLOC B — Periode Inflation
-  Train : janvier 2017 → decembre 2021  (60 mois)
-  Test  : janvier 2022 → decembre 2024  (36 pas)
+  Train : janvier 2017 -&gt; decembre 2021  (60 mois)
+  Test  : janvier 2022 -&gt; decembre 2024  (36 pas)
 </pre></div>
 </div>
 </section>
@@ -387,7 +387,8 @@ BLOC B — Periode Inflation
 </thead>
 <tbody>
 <tr class="row-even"><td><p>LSTM GridSearch — Bloc A</p></td>
-<td colspan="2"><p><strong>1.382</strong> | 1.213</p></td>
+<td><p>1.382</p></td>
+<td><p>1.213</p></td>
 <td><p>1.19%</p></td>
 </tr>
 <tr class="row-odd"><td><p>LSTM GridSearch — Bloc B</p></td>
@@ -403,6 +404,32 @@ BLOC B — Periode Inflation
 </tbody>
 </table>
 <p>Comparaison avec les baselines :</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Modele</p></th>
+<th class="head"><p>RMSE</p></th>
+<th class="head"><p>Verdict</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Naif (persistance)</p></td>
+<td><p>1.609</p></td>
+<td><p>Baseline</p></td>
+</tr>
+<tr class="row-odd"><td><p>SARIMAX + BESI</p></td>
+<td><p>1.891</p></td>
+<td><p>Meilleur statistique</p></td>
+</tr>
+<tr class="row-even"><td><p>LSTM — Bloc A</p></td>
+<td><p>1.382</p></td>
+<td><p>Bat le naif (+14%)</p></td>
+</tr>
+<tr class="row-odd"><td><p>LSTM — Bloc B</p></td>
+<td><p>19.738</p></td>
+<td><p>Effondrement</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 <section id="analyse-du-comportement-asymetrique">
 <h2>Analyse du comportement asymetrique<a class="headerlink" href="#analyse-du-comportement-asymetrique" title="Lien vers cette rubrique"></a></h2>
@@ -411,26 +438,17 @@ BLOC B — Periode Inflation
 Sur une periode de variation moderee, le LSTM capture des dynamiques
 non-lineaires invisibles pour SARIMA.</p>
 <p><strong>Bloc B (Inflation 2022-2024) — LSTM en echec</strong></p>
-<p>RMSE = 19.738, soit <strong>12x plus eleve que SARIMAX</strong>. Pourquoi ?</p>
+<p>RMSE = 19.738, soit 12x plus eleve que SARIMAX. Deux raisons :</p>
 <ol class="arabic simple">
-<li><p><strong>Rupture structurelle hors distribution :</strong>
-Le modele est entraine sur 2017-2021 ou l’IPC monte de ~0.5%/an.
-En 2022 l’IPC monte de 6-8%/an. C’est 12x plus rapide — le LSTM
-n’a jamais vu ca.</p></li>
-<li><p><strong>Probleme du scaler :</strong>
-Avec MinMaxScaler calibre sur 2017-2021, les valeurs de 2022-2024
-sortent de la plage [0, 1] → extrapolation catastrophique.
-Le passage au RobustScaler n’ameliore pas significativement
-(RMSE Bloc B = 22.02 avec RobustScaler).</p></li>
-<li><p><strong>Taille du dataset insuffisante :</strong>
-60 observations d’entrainement sont structurellement insuffisantes
-pour un reseau LSTM. La litterature recommande plusieurs milliers
-de sequences.</p></li>
+<li><p><strong>Rupture structurelle hors distribution :</strong> le modele est entraine
+sur 2017-2021 ou l’IPC monte de ~0.5%/an. En 2022 l’IPC monte
+de 6-8%/an — 12x plus rapide — jamais vu pendant l’entrainement.</p></li>
+<li><p><strong>Taille du dataset insuffisante :</strong> 60 observations d’entrainement
+sont structurellement insuffisantes pour un reseau LSTM.</p></li>
 </ol>
 </section>
 <section id="autres-modeles-testes">
 <h2>Autres modeles testes<a class="headerlink" href="#autres-modeles-testes" title="Lien vers cette rubrique"></a></h2>
-<p>Avant le GridSearch LSTM, d’autres approches ont ete evaluees :</p>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Modele</p></th>
@@ -453,26 +471,17 @@ de sequences.</p></li>
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Ces RMSE sont en echelle normalisee (IPC entre 0 et 1), differente
-des RMSE du GridSearch final (IPC en valeur absolue, base 2017=100).</p>
-</div>
 </section>
-<section id="conclusion-de-la-partie-deep-learning">
-<h2>Conclusion de la partie Deep Learning<a class="headerlink" href="#conclusion-de-la-partie-deep-learning" title="Lien vers cette rubrique"></a></h2>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Lien vers cette rubrique"></a></h2>
 <p>Le GridSearch LSTM sur 96 combinaisons revele un comportement
 <strong>asymetrique et instructif</strong> :</p>
 <blockquote>
 <div><p><em>« Le LSTM apporte de la valeur sur les periodes de relative stabilite
 (Bloc A : RMSE=1.38, meilleur que le naif de 14%), mais s’effondre
 sur les periodes de rupture structurelle majeure (Bloc B : RMSE=19.74).
-Ce resultat confirme que 60 observations avec une rupture structurelle
-de magnitude x11.6 rendent le deep learning inapplicable hors
-distribution. SARIMAX reste superieur sur les series macroeconomiques
-courtes avec choc structurel — les modeles statistiques dominent
-car ils modelisent explicitement la structure saisonniere sans
-supposer de stationnarite de la distribution. »</em></p>
+Ce resultat confirme que SARIMAX reste superieur sur les series
+macroeconomiques courtes avec choc structurel. »</em></p>
 </div></blockquote>
 </section>
 <section id="fichiers-generes">
@@ -485,18 +494,13 @@ supposer de stationnarite de la distribution. »</em></p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">outputs/reports/lstm_results.csv</span></code></p></td>
-<td><p>Resultats par bloc (format binome)</p></td>
+<td><p>Resultats par bloc</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">outputs/reports/gridsearch_lstm_blocA.csv</span></code></p></td>
 <td><p>Top combinaisons Bloc A</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">outputs/reports/gridsearch_lstm_blocB.csv</span></code></p></td>
 <td><p>Top combinaisons Bloc B</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">outputs/reports/lstm_results_minmax.csv</span></code></p></td>
-<td><p>Resultats avec MinMaxScaler</p></td>
-</tr>
-<tr class="row-even"><td colspan="2"><p><a href="#id1"><span class="problematic" id="id2">``</span></a>outputs/reports/lstm_scaler_comparison.csv``| Comparaison MinMax vs Robust</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">outputs/reports/lstm_best_params.json</span></code></p></td>
 <td><p>Meilleurs hyperparametres JSON</p></td>

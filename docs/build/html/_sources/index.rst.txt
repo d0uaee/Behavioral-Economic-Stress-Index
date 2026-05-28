@@ -1,5 +1,3 @@
-.. BESI documentation master file
-
 BESI — Behavioral Economic Stress Index
 ========================================
 

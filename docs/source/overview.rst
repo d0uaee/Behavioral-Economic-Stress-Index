@@ -76,17 +76,17 @@ Equipe et cadre academique
 +------------------+-------------------------------------------+
 | Element          | Detail                                    |
 +==================+===========================================+
-| Auteurs          | Douae Ahadji & Adama Basse               |
+| Auteurs          | Douae Ahadji & Adama Basse                |
 +------------------+-------------------------------------------+
-| Etablissement    | ENSAM Meknes (Maroc)                     |
+| Etablissement    | ENSAM Meknes (Maroc)                      |
 +------------------+-------------------------------------------+
-| Cours            | Series Temporelles                       |
+| Cours            | Series Temporelles                        |
 +------------------+-------------------------------------------+
-| Duree            | 8 semaines                               |
+| Duree            | 8 semaines                                |
 +------------------+-------------------------------------------+
-| Annee            | 2025-2026                                |
+| Annee            | 2025-2026                                 |
 +------------------+-------------------------------------------+
-| Langage          | Python 3.10                              |
+| Langage          | Python 3.10                               |
 +------------------+-------------------------------------------+
-| Depot GitHub     | d0uaee/Behavioral-Economic-Stress-Index  |
+| Depot GitHub     | d0uaee/Behavioral-Economic-Stress-Index   |
 +------------------+-------------------------------------------+

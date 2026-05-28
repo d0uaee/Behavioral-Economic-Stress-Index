@@ -14,7 +14,7 @@ extensions = [
 ]
 
 html_theme         = "sphinx_rtd_theme"
-html_static_path   = ["_static"]
+html_static_path   = []
 templates_path     = ["_templates"]
 exclude_patterns   = []
 language           = "fr"
@@ -26,7 +26,6 @@ html_theme_options = {
     "sticky_navigation"   : True,
     "includehidden"       : True,
     "logo_only"           : False,
-    "display_version"     : True,
     "prev_next_buttons_location": "bottom",
 }
 
