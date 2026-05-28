@@ -4,8 +4,7 @@ Modeles Deep Learning (partie Adama Basse)
 Introduction
 ------------
 
-Cette section documente la partie Deep Learning du projet, developpee
-par **Adama Basse**. L'objectif est de tester si un modele LSTM optimise
+Cette section documente la partie Deep Learning du projet. L'objectif est de tester si un modele LSTM optimise
 peut capturer les non-linearites de la relation BESI-IPC que les modeles
 statistiques lineaires (SARIMA/SARIMAX) ne peuvent pas detecter.
 
