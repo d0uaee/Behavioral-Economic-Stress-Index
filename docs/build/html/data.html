@@ -76,7 +76,8 @@
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Donnees</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#sources-de-donnees">Sources de donnees</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#architecture-bronze-silver-gold">Architecture Bronze → Silver → Gold</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#nlp-hespress-pourquoi-et-comment">NLP Hespress — pourquoi et comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture-bronze-silver-gold">Architecture Bronze -&gt; Silver -&gt; Gold</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#bronze-donnees-brutes">Bronze — Donnees brutes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#silver-donnees-nettoyees">Silver — Donnees nettoyees</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#gold-dataset-final">Gold — Dataset final</a></li>
@@ -84,7 +85,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#colonnes-principales-du-gold-dataset">Colonnes principales du Gold dataset</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#blocs-d-evaluation">Blocs d’evaluation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#selection-automatique-des-keywords-google-trends">Sélection automatique des keywords Google Trends</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#note-importante-sur-le-data-leakage">Note importante sur le data leakage</a></li>
 </ul>
 </li>
@@ -92,10 +92,10 @@
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#definition">Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-v3-behavioral-pur">Formule BESI V3 (behavioral pur)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-hybrid-v3-test-h2">Formule BESI Hybrid (V3 — test H2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#technique-du-chunking-ancre-google-trends">Technique du chunking ancre (Google Trends)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#normalisation-du-besi">Normalisation du BESI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#interpretation-des-valeurs">Interpretation des valeurs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#correlation-besi-inflation">Correlation BESI — Inflation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#selection-automatique-des-keywords">Selection automatique des keywords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#interpretation-des-valeurs-besi">Interpretation des valeurs BESI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#pourquoi-le-besi-perd-de-la-puissance-apres-2022">Pourquoi le BESI perd de la puissance apres 2022</a></li>
 </ul>
 </li>
@@ -105,19 +105,12 @@
 <li class="toctree-l1"><a class="reference internal" href="models_statistical.html">Modeles Statistiques</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#sarima-modele-de-reference">SARIMA — Modele de reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="models_statistical.html#parametres-retenus-apres-grille-aic">Parametres retenus apres grille AIC</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#identification-des-ordres-acf-pacf">Identification des ordres (ACF/PACF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="models_statistical.html#tests-de-stationnarite">Tests de stationnarite</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#sarimax-modele-avec-besi-exogene">SARIMAX — Modele avec BESI exogene</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#validation-walk-forward">Validation Walk-Forward</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#metriques-de-performance">Metriques de performance</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#test-de-chow-rupture-structurelle-2022">Test de Chow — Rupture structurelle 2022</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#cusum-confirmation-graphique">CUSUM — Confirmation graphique</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#resultats-honnetes-le-naif-gagne-en-rmse">Resultats honnetes — le naif gagne en RMSE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#test-de-chow-rupture-structurelle-2022">Test de Chow — Rupture structurelle 2022</a></li>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#causalite-de-granger">Causalite de Granger</a></li>
 </ul>
 </li>
@@ -151,20 +144,21 @@
 <p class="caption" role="heading"><span class="caption-text">Resultats et Analyses</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="results.html">Resultats</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-des-resultats-v3">Tableau de bord des resultats V3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#performances-de-prevision-walk-forward">Performances de prevision (walk-forward)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#rupture-structurelle-2022">Rupture structurelle 2022</a></li>
-<li class="toctree-l2"><a class="reference internal" href="results.html#early-warning-alerte-precoce">Early Warning — Alerte precoce</a></li>
-<li class="toctree-l2"><a class="reference internal" href="results.html#performances-modeles-statistiques">Performances modeles statistiques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#detection-de-regime-early-warning">Detection de regime — Early Warning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#performances-lstm-par-bloc">Performances LSTM par bloc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-complet">Tableau de bord complet</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="hypotheses.html">Validation des Hypotheses</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h1-besi-predit-le-stress-economique">H1 — BESI predit le stress economique</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h1-besi-et-detection-des-regimes-d-inflation">H1 — BESI et detection des regimes d’inflation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#criteres-de-validation">Criteres de validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#phrase-de-conclusion-pour-l-oral">Phrase de conclusion pour l’oral</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h2-le-signal-macro-ameliore-la-detection">H2 — Le signal macro ameliore la detection</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h2-variables-macroeconomiques-et-detection-des-regimes">H2 — Variables macroeconomiques et detection des regimes</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#id1">Criteres de validation</a></li>
 </ul>
 </li>
@@ -173,9 +167,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="limitations.html">Limites et Perspectives</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="limitations.html#limites-documentees">Limites documentees</a></li>
-<li class="toctree-l2"><a class="reference internal" href="limitations.html#limites-specifiques-au-deep-learning">Limites specifiques au Deep Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="limitations.html#pourquoi-le-naif-gagne-en-rmse-explication">Pourquoi le naif gagne en RMSE — explication</a></li>
 <li class="toctree-l2"><a class="reference internal" href="limitations.html#perspectives-de-recherche">Perspectives de recherche</a></li>
-<li class="toctree-l2"><a class="reference internal" href="limitations.html#note-sur-le-choix-de-sarima-vs-deep-learning">Note sur le choix de SARIMA vs Deep Learning</a></li>
 </ul>
 </li>
 </ul>
@@ -264,25 +257,30 @@
 </tr>
 <tr class="row-odd"><td><p>Google Trends (pytrends)</p></td>
 <td><p>7 mots-cles, geo=MA</p></td>
-<td><p>2010-2024</p></td>
+<td><p>2017-2024</p></td>
 <td><p>OK</p></td>
 </tr>
 <tr class="row-even"><td><p>FAO Food Price Index</p></td>
 <td><p>6 sous-indices alimentaires</p></td>
-<td><p>2010-2024</p></td>
+<td><p>2017-2024</p></td>
 <td><p>OK</p></td>
 </tr>
 <tr class="row-odd"><td><p>ECB / interpolation lineaire</p></td>
 <td><p>Taux MAD/EUR mensuel</p></td>
-<td><p>2010-2024</p></td>
-<td><p>OK (interpolation)</p></td>
+<td><p>2017-2024</p></td>
+<td><p>OK (interpolation lineaire)</p></td>
 </tr>
-<tr class="row-even"><td><p>Reddit r/Morocco</p></td>
+<tr class="row-even"><td><p>Hespress / Le360 / Medias24</p></td>
+<td><p>NLP presse marocaine (flux RSS)</p></td>
+<td><p>30-90 j</p></td>
+<td><p>CAS C — validation recente</p></td>
+</tr>
+<tr class="row-odd"><td><p>Reddit r/Morocco</p></td>
 <td><p>NLP inflation</p></td>
 <td><p>—</p></td>
 <td><p>Absent (API refusee)</p></td>
 </tr>
-<tr class="row-odd"><td><p>YouTube</p></td>
+<tr class="row-even"><td><p>YouTube</p></td>
 <td><p>Commentaires economiques</p></td>
 <td><p>—</p></td>
 <td><p>Absent (quota depasse)</p></td>
@@ -290,8 +288,24 @@
 </tbody>
 </table>
 </section>
+<section id="nlp-hespress-pourquoi-et-comment">
+<h2>NLP Hespress — pourquoi et comment<a class="headerlink" href="#nlp-hespress-pourquoi-et-comment" title="Lien vers cette rubrique"></a></h2>
+<p>Reddit et YouTube n’ont pas pu etre collectes :</p>
+<ul class="simple">
+<li><p><strong>Reddit</strong> : demande d’acces API refusee</p></li>
+<li><p><strong>YouTube</strong> : quota API depasse en quelques minutes</p></li>
+</ul>
+<p>Ils ont ete remplaces par la <strong>presse marocaine via flux RSS</strong> :
+Hespress, Le360, Medias24. Ces sources sont plus representatives
+des menages marocains que Reddit (surtout jeunes urbains francophones).</p>
+<p><strong>Limite principale :</strong> les flux RSS ne conservent que 30 a 90 jours
+d’historique. Le signal NLP Hespress ne couvre donc pas toute la
+periode 2017-2024 — il est utilise comme <strong>validation recente</strong>
+(CAS C) et non comme composante du BESI principal.</p>
+<p><strong>Fichier :</strong> <code class="docutils literal notranslate"><span class="pre">data/silver/press_signal_monthly.csv</span></code></p>
+</section>
 <section id="architecture-bronze-silver-gold">
-<h2>Architecture Bronze → Silver → Gold<a class="headerlink" href="#architecture-bronze-silver-gold" title="Lien vers cette rubrique"></a></h2>
+<h2>Architecture Bronze -&gt; Silver -&gt; Gold<a class="headerlink" href="#architecture-bronze-silver-gold" title="Lien vers cette rubrique"></a></h2>
 <section id="bronze-donnees-brutes">
 <h3>Bronze — Donnees brutes<a class="headerlink" href="#bronze-donnees-brutes" title="Lien vers cette rubrique"></a></h3>
 <p>Jamais modifiees. Servent de reference.</p>
@@ -309,7 +323,8 @@
 |-- cpi_monthly.csv              IPC + inflation_yoy + inflation_mom
 |-- google_trends_monthly.csv    Sous-indices Trends normalises 0-1
 |-- behavioral_index_pure.csv    BESI comportemental (Trends seul)
-`-- macro_signals_monthly.csv    FAO + FX normalises
+|-- macro_signals_monthly.csv    FAO + FX normalises
+`-- press_signal_monthly.csv     NLP Hespress (CAS C - recent)
 </pre></div>
 </div>
 </section>
@@ -353,19 +368,16 @@ par tous les modeles.</strong></p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">trends_inflation</span></code></p></td>
 <td><p>Sous-indice Trends inflation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">trends_carburant</span></code></p></td>
-<td><p>Sous-indice Trends carburant</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fao_food_yoy</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fao_food_yoy</span></code></p></td>
 <td><p>FAO Food Price Index (var. annuelle)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fao_oils_yoy</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fao_oils_yoy</span></code></p></td>
 <td><p>FAO Oils Price Index (var. annuelle)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fx_yoy</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fx_yoy</span></code></p></td>
 <td><p>Variation annuelle MAD/EUR</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">split_label</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">split_label</span></code></p></td>
 <td><p>train_A / test_A / train_B / test_B</p></td>
 </tr>
 </tbody>
@@ -373,40 +385,17 @@ par tous les modeles.</strong></p>
 </section>
 <section id="blocs-d-evaluation">
 <h2>Blocs d’evaluation<a class="headerlink" href="#blocs-d-evaluation" title="Lien vers cette rubrique"></a></h2>
-<p>Le dataset est divise en deux blocs temporels distincts :</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>BLOC A — Periode COVID
-  Train : janvier 2017 → decembre 2019  (36 mois)
-  Test  : janvier 2020 → decembre 2021  (24 mois)
+  Train : janvier 2017 -&gt; decembre 2019  (36 mois)
+  Test  : janvier 2020 -&gt; decembre 2021  (24 mois)
   Contexte : choc exogene COVID-19, IPC relativement stable
 
 BLOC B — Periode Inflation
-  Train : janvier 2017 → decembre 2021  (60 mois)
-  Test  : janvier 2022 → decembre 2024  (36 mois)
-  Contexte : choc inflationniste majeur (guerre Ukraine, prix mondiaux)
+  Train : janvier 2017 -&gt; decembre 2021  (60 mois)
+  Test  : janvier 2022 -&gt; decembre 2024  (36 mois)
+  Contexte : choc inflationniste majeur — changement de regime x11.6
 </pre></div>
 </div>
-</section>
-<section id="selection-automatique-des-keywords-google-trends">
-<h2>Sélection automatique des keywords Google Trends<a class="headerlink" href="#selection-automatique-des-keywords-google-trends" title="Lien vers cette rubrique"></a></h2>
-<p>La selection des mots-cles Google Trends suit un protocole en 4 etapes
-pour repondre a la critique « pourquoi ces keywords et pas d’autres ? » :</p>
-<ol class="arabic">
-<li><p><strong>Generation automatique</strong> : <code class="docutils literal notranslate"><span class="pre">pytrends.related_queries()</span></code> genere 50+
-candidats depuis 5 seeds economiques.</p></li>
-<li><p><strong>Decomposition STL</strong> : la saisonnalite (Ramadan, rentree scolaire)
-est supprimee avant correlation pour eviter les biais saisonniers.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>La correlation brute BESI-inflation est r=0.535, mais apres
-decomposition STL elle tombe a r=0.228. Les 0.307 points
-restants venaient uniquement du Ramadan.</p>
-</div>
-</li>
-<li><p><strong>Filtrage</strong> : seuls les keywords avec r &gt; 0.25 sur les residus
-STL sont conserves.</p></li>
-<li><p><strong>Clustering K-Means</strong> : elimination des keywords redondants,
-7 groupes thematiques finaux retenus.</p></li>
-</ol>
 </section>
 <section id="note-importante-sur-le-data-leakage">
 <h2>Note importante sur le data leakage<a class="headerlink" href="#note-importante-sur-le-data-leakage" title="Lien vers cette rubrique"></a></h2>
@@ -414,7 +403,7 @@ STL sont conserves.</p></li>
 <p class="admonition-title">Avertissement</p>
 <p><code class="docutils literal notranslate"><span class="pre">ipc_level</span></code>, <code class="docutils literal notranslate"><span class="pre">inflation_yoy</span></code> et <code class="docutils literal notranslate"><span class="pre">ipc_change</span></code> ne sont <strong>jamais</strong>
 utilises comme features d’entree dans les modeles. Ce sont les variables
-cibles. Les inclure serait du <strong>data leakage</strong> (triche).</p>
+cibles. Les inclure serait du <strong>data leakage</strong>.</p>
 <p>La formule BESI V3 n’inclut plus de composante IPC, contrairement
 a la version V1/V2. Les poids sont calibres par <strong>LassoCV</strong> sur le
 jeu d’entrainement uniquement.</p>

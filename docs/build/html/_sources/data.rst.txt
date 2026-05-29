@@ -9,19 +9,40 @@ Sources de donnees
 +==============================+====================================+===========+============================+
 | HCP Maroc (manuel)           | IPC mensuel base 2017=100          | 2017-2024 | OK                         |
 +------------------------------+------------------------------------+-----------+----------------------------+
-| Google Trends (pytrends)     | 7 mots-cles, geo=MA                | 2010-2024 | OK                         |
+| Google Trends (pytrends)     | 7 mots-cles, geo=MA                | 2017-2024 | OK                         |
 +------------------------------+------------------------------------+-----------+----------------------------+
-| FAO Food Price Index         | 6 sous-indices alimentaires        | 2010-2024 | OK                         |
+| FAO Food Price Index         | 6 sous-indices alimentaires        | 2017-2024 | OK                         |
 +------------------------------+------------------------------------+-----------+----------------------------+
-| ECB / interpolation lineaire | Taux MAD/EUR mensuel               | 2010-2024 | OK (interpolation)         |
+| ECB / interpolation lineaire | Taux MAD/EUR mensuel               | 2017-2024 | OK (interpolation lineaire)|
++------------------------------+------------------------------------+-----------+----------------------------+
+| Hespress / Le360 / Medias24  | NLP presse marocaine (flux RSS)    | 30-90 j   | CAS C — validation recente |
 +------------------------------+------------------------------------+-----------+----------------------------+
 | Reddit r/Morocco             | NLP inflation                      | ---       | Absent (API refusee)       |
 +------------------------------+------------------------------------+-----------+----------------------------+
 | YouTube                      | Commentaires economiques           | ---       | Absent (quota depasse)     |
 +------------------------------+------------------------------------+-----------+----------------------------+
 
-Architecture Bronze → Silver → Gold
+NLP Hespress — pourquoi et comment
 -------------------------------------
+
+Reddit et YouTube n'ont pas pu etre collectes :
+
+- **Reddit** : demande d'acces API refusee
+- **YouTube** : quota API depasse en quelques minutes
+
+Ils ont ete remplaces par la **presse marocaine via flux RSS** :
+Hespress, Le360, Medias24. Ces sources sont plus representatives
+des menages marocains que Reddit (surtout jeunes urbains francophones).
+
+**Limite principale :** les flux RSS ne conservent que 30 a 90 jours
+d'historique. Le signal NLP Hespress ne couvre donc pas toute la
+periode 2017-2024 — il est utilise comme **validation recente**
+(CAS C) et non comme composante du BESI principal.
+
+**Fichier :** ``data/silver/press_signal_monthly.csv``
+
+Architecture Bronze -> Silver -> Gold
+---------------------------------------
 
 Bronze — Donnees brutes
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,7 +67,8 @@ Standardisees, normalisees, sans valeurs aberrantes.
    |-- cpi_monthly.csv              IPC + inflation_yoy + inflation_mom
    |-- google_trends_monthly.csv    Sous-indices Trends normalises 0-1
    |-- behavioral_index_pure.csv    BESI comportemental (Trends seul)
-   `-- macro_signals_monthly.csv    FAO + FX normalises
+   |-- macro_signals_monthly.csv    FAO + FX normalises
+   `-- press_signal_monthly.csv     NLP Hespress (CAS C - recent)
 
 Gold — Dataset final
 ~~~~~~~~~~~~~~~~~~~~~
@@ -79,8 +101,6 @@ Colonnes principales du Gold dataset
 +-------------------------------+------------------------------------------+
 | ``trends_inflation``          | Sous-indice Trends inflation             |
 +-------------------------------+------------------------------------------+
-| ``trends_carburant``          | Sous-indice Trends carburant             |
-+-------------------------------+------------------------------------------+
 | ``fao_food_yoy``              | FAO Food Price Index (var. annuelle)     |
 +-------------------------------+------------------------------------------+
 | ``fao_oils_yoy``              | FAO Oils Price Index (var. annuelle)     |
@@ -93,42 +113,17 @@ Colonnes principales du Gold dataset
 Blocs d'evaluation
 -------------------
 
-Le dataset est divise en deux blocs temporels distincts :
-
 .. code-block:: text
 
    BLOC A — Periode COVID
-     Train : janvier 2017 → decembre 2019  (36 mois)
-     Test  : janvier 2020 → decembre 2021  (24 mois)
+     Train : janvier 2017 -> decembre 2019  (36 mois)
+     Test  : janvier 2020 -> decembre 2021  (24 mois)
      Contexte : choc exogene COVID-19, IPC relativement stable
 
    BLOC B — Periode Inflation
-     Train : janvier 2017 → decembre 2021  (60 mois)
-     Test  : janvier 2022 → decembre 2024  (36 mois)
-     Contexte : choc inflationniste majeur (guerre Ukraine, prix mondiaux)
-
-Sélection automatique des keywords Google Trends
--------------------------------------------------
-
-La selection des mots-cles Google Trends suit un protocole en 4 etapes
-pour repondre a la critique "pourquoi ces keywords et pas d'autres ?" :
-
-1. **Generation automatique** : ``pytrends.related_queries()`` genere 50+
-   candidats depuis 5 seeds economiques.
-
-2. **Decomposition STL** : la saisonnalite (Ramadan, rentree scolaire)
-   est supprimee avant correlation pour eviter les biais saisonniers.
-
-   .. note::
-      La correlation brute BESI-inflation est r=0.535, mais apres
-      decomposition STL elle tombe a r=0.228. Les 0.307 points
-      restants venaient uniquement du Ramadan.
-
-3. **Filtrage** : seuls les keywords avec r > 0.25 sur les residus
-   STL sont conserves.
-
-4. **Clustering K-Means** : elimination des keywords redondants,
-   7 groupes thematiques finaux retenus.
+     Train : janvier 2017 -> decembre 2021  (60 mois)
+     Test  : janvier 2022 -> decembre 2024  (36 mois)
+     Contexte : choc inflationniste majeur — changement de regime x11.6
 
 Note importante sur le data leakage
 -------------------------------------
@@ -137,7 +132,7 @@ Note importante sur le data leakage
 
    ``ipc_level``, ``inflation_yoy`` et ``ipc_change`` ne sont **jamais**
    utilises comme features d'entree dans les modeles. Ce sont les variables
-   cibles. Les inclure serait du **data leakage** (triche).
+   cibles. Les inclure serait du **data leakage**.
 
    La formule BESI V3 n'inclut plus de composante IPC, contrairement
    a la version V1/V2. Les poids sont calibres par **LassoCV** sur le

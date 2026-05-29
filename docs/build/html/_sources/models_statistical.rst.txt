@@ -6,8 +6,6 @@ SARIMA — Modele de reference
 
 **SARIMA** = Seasonal AutoRegressive Integrated Moving Average
 
-Notation complete :
-
 .. math::
 
    SARIMA(p, d, q) \times (P, D, Q)[m]
@@ -19,8 +17,6 @@ Parametres retenus apres grille AIC
 
    SARIMA(1, 1, 1) x (1, 0, 1)[12]   AIC Train A = 64.85
 
-Signification de chaque parametre :
-
 +-------------+---------+-----------------------------------------+
 | Parametre   | Valeur  | Role                                    |
 +=============+=========+=========================================+
@@ -30,24 +26,14 @@ Signification de chaque parametre :
 +-------------+---------+-----------------------------------------+
 | q = 1       | MA(1)   | 1 erreur passee influence la valeur     |
 +-------------+---------+-----------------------------------------+
-| P = 1       | SAR(1)  | AR saisonnier — meme mois annee prec.   |
+| P = 1       | SAR(1)  | AR saisonnier                           |
 +-------------+---------+-----------------------------------------+
 | D = 0       | SI(0)   | Pas de difference saisonniere           |
 +-------------+---------+-----------------------------------------+
 | Q = 1       | SMA(1)  | MA saisonnier                           |
 +-------------+---------+-----------------------------------------+
-| m = 12      | ---     | Periodicite mensuelle (12 mois)         |
+| m = 12      | ---     | Periodicite mensuelle                   |
 +-------------+---------+-----------------------------------------+
-
-Identification des ordres (ACF/PACF)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-La grille de recherche AIC teste plusieurs combinaisons. L'identification
-initiale par ACF/PACF donne :
-
-- ACF lag 1 significatif → q=1 (MA partie)
-- PACF lags 1-2 significatifs → p=1-2 (AR partie)
-- ACF lag 12 significatif → Q=1 (MA saisonnier)
 
 Tests de stationnarite
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,71 +53,47 @@ Tests de stationnarite
 SARIMAX — Modele avec BESI exogene
 ------------------------------------
 
-**SARIMAX** = SARIMA + variables eXogenes
-
 .. math::
 
    IPC_t = SARIMA(IPC_{t-k}) + \beta \cdot BESI_{t} + \varepsilon_t
-
-Ou :math:`\beta` est le coefficient du BESI estime par maximum de vraisemblance.
 
 Resultats :
 
 - AIC SARIMAX + BESI behavioral = **57.09** (vs SARIMA = 64.85)
 - Delta AIC = **-7.77** — amelioration statistiquement significative
-- Coefficient beta BESI : significatif (p < 0.05) sur la periode complete
-- Coefficient beta BESI post-2022 : -60% (rupture structurelle confirmee)
+- Coefficient BESI post-2022 : -60% (rupture structurelle confirmee)
 
-Validation Walk-Forward
-------------------------
+Resultats honnetes — le naif gagne en RMSE
+-------------------------------------------
 
-**Principe :** simulation d'un usage en temps reel, mois par mois.
+.. warning::
 
-.. code-block:: text
+   Le modele **naif (persistance) obtient le meilleur RMSE global (1.609)**.
+   Ce resultat est documente et assume. L'IPC marocain est tres persistant
+   (proche d'une marche aleatoire) — predire "le mois prochain = ce mois"
+   fonctionne bien en precision point-par-point.
 
-   Pour chaque mois t dans la periode de test :
-     1. Entrainer le modele sur toutes les donnees jusqu'a t-1
-     2. Predire le mois t (h=1, un pas en avant)
-     3. Comparer avec la vraie valeur
-     4. Passer au mois suivant
++-----------------------------+--------+-------+-------+-------+
+| Modele                      | RMSE   | MAE   | MAPE  | AIC   |
++=============================+========+=======+=======+=======+
+| Naif (persistance) MEILLEUR | 1.609  | 1.200 | 1.06% | ---   |
++-----------------------------+--------+-------+-------+-------+
+| SARIMA(1,1,1)(1,0,1)[12]    | 1.923  | 1.537 | 1.38% | 64.85 |
++-----------------------------+--------+-------+-------+-------+
+| SARIMAX + BESI behavioral   | 1.891  | 1.522 | 1.36% | 57.09 |
++-----------------------------+--------+-------+-------+-------+
+| SARIMAX + Hybrid macro      | 1.997  | 1.576 | 1.42% | ---   |
++-----------------------------+--------+-------+-------+-------+
 
-C'est la validation la plus rigoureuse pour les series temporelles
-car elle respecte strictement l'ordre temporel des donnees.
-
-Metriques de performance
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+-----------------------------+---------+---------+-------+-----------+
-| Modele                      | RMSE    | MAE     | MAPE  | AIC       |
-+=============================+=========+=========+=======+===========+
-| Naif (persistance)          | 1.609   | 1.200   | 1.06% | ---       |
-+-----------------------------+---------+---------+-------+-----------+
-| SARIMA(1,1,1)(1,0,1)[12]    | 1.923   | 1.537   | 1.38% | 64.85     |
-+-----------------------------+---------+---------+-------+-----------+
-| **SARIMAX + BESI behav.**   | **1.891** | **1.522** | **1.36%** | **57.09** |
-+-----------------------------+---------+---------+-------+-----------+
-| SARIMAX + Hybrid macro      | 1.997   | 1.576   | 1.42% | ---       |
-+-----------------------------+---------+---------+-------+-----------+
+La valeur de SARIMAX + BESI est dans la **detection de regime**
+(Recall = 1.00 sur Bloc B, AIC meilleur) et non dans la RMSE.
 
 Test de Chow — Rupture structurelle 2022
 -----------------------------------------
 
-Le test de Chow verifie si les coefficients de regression sont
-**stables avant et apres janvier 2022**.
-
-**Principe mathematique :**
-
 .. math::
 
    F = \frac{(RSS_c - RSS_{nc}) / k}{RSS_{nc} / (n - 2k)}
-
-Ou :
-
-- :math:`RSS_c` = erreurs du modele contraint (toute la periode)
-- :math:`RSS_{nc}` = erreurs pre-2022 + erreurs post-2022
-- k = nombre de parametres, n = nombre d'observations
-
-**Resultats :**
 
 +------------------------------+-------------------+
 | Statistique                  | Valeur            |
@@ -149,25 +111,15 @@ Ou :
 | Facteur multiplicatif        | **x11.6**         |
 +------------------------------+-------------------+
 
-CUSUM — Confirmation graphique
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Le CUSUM (Brown-Durbin-Evans, 1975) montre visuellement quand les
-residus recursifs sortent des bandes de confiance. Dans ce projet,
-la sortie des bandes se produit exactement autour de janvier 2022,
-confirmant graphiquement le test de Chow.
-
 Causalite de Granger
 ----------------------
 
-**H0 :** Le BESI ne cause pas l'inflation YoY au sens de Granger.
-
 Test bidirectionnel sur lags 1-4 :
 
-- BESI → Inflation : **non significatif** (p > 0.62 a tous les lags)
-- Inflation → BESI : **non significatif**
+- BESI -> Inflation : **non significatif** (p > 0.62 a tous les lags)
+- Inflation -> BESI : **non significatif**
 
 **Interpretation :** La relation est non-lineaire. Le BESI agit comme
-detecteur de regime, pas comme predicteur causal lineaire. C'est
-precisement pourquoi un modele LSTM pourrait theoriquement apporter
-de la valeur sur les periodes stables.
+detecteur de regime d'inflation, pas comme predicteur causal lineaire.
+C'est pour cela qu'un modele LSTM peut theoriquement apporter de la
+valeur sur les periodes stables (confirme sur Bloc A).

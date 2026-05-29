@@ -76,7 +76,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">Donnees</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="data.html#sources-de-donnees">Sources de donnees</a></li>
-<li class="toctree-l2"><a class="reference internal" href="data.html#architecture-bronze-silver-gold">Architecture Bronze → Silver → Gold</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data.html#nlp-hespress-pourquoi-et-comment">NLP Hespress — pourquoi et comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#architecture-bronze-silver-gold">Architecture Bronze -&gt; Silver -&gt; Gold</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="data.html#bronze-donnees-brutes">Bronze — Donnees brutes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data.html#silver-donnees-nettoyees">Silver — Donnees nettoyees</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data.html#gold-dataset-final">Gold — Dataset final</a></li>
@@ -84,7 +85,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#colonnes-principales-du-gold-dataset">Colonnes principales du Gold dataset</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#blocs-d-evaluation">Blocs d’evaluation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="data.html#selection-automatique-des-keywords-google-trends">Sélection automatique des keywords Google Trends</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#note-importante-sur-le-data-leakage">Note importante sur le data leakage</a></li>
 </ul>
 </li>
@@ -92,10 +92,10 @@
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#definition">Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-v3-behavioral-pur">Formule BESI V3 (behavioral pur)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-hybrid-v3-test-h2">Formule BESI Hybrid (V3 — test H2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#technique-du-chunking-ancre-google-trends">Technique du chunking ancre (Google Trends)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#normalisation-du-besi">Normalisation du BESI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#interpretation-des-valeurs">Interpretation des valeurs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="besi_index.html#correlation-besi-inflation">Correlation BESI — Inflation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#selection-automatique-des-keywords">Selection automatique des keywords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#interpretation-des-valeurs-besi">Interpretation des valeurs BESI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="besi_index.html#pourquoi-le-besi-perd-de-la-puissance-apres-2022">Pourquoi le BESI perd de la puissance apres 2022</a></li>
 </ul>
 </li>
@@ -105,19 +105,12 @@
 <li class="toctree-l1"><a class="reference internal" href="models_statistical.html">Modeles Statistiques</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#sarima-modele-de-reference">SARIMA — Modele de reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="models_statistical.html#parametres-retenus-apres-grille-aic">Parametres retenus apres grille AIC</a></li>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#identification-des-ordres-acf-pacf">Identification des ordres (ACF/PACF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="models_statistical.html#tests-de-stationnarite">Tests de stationnarite</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#sarimax-modele-avec-besi-exogene">SARIMAX — Modele avec BESI exogene</a></li>
-<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#validation-walk-forward">Validation Walk-Forward</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#metriques-de-performance">Metriques de performance</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#test-de-chow-rupture-structurelle-2022">Test de Chow — Rupture structurelle 2022</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="models_statistical.html#cusum-confirmation-graphique">CUSUM — Confirmation graphique</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#resultats-honnetes-le-naif-gagne-en-rmse">Resultats honnetes — le naif gagne en RMSE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_statistical.html#test-de-chow-rupture-structurelle-2022">Test de Chow — Rupture structurelle 2022</a></li>
 <li class="toctree-l2"><a class="reference internal" href="models_statistical.html#causalite-de-granger">Causalite de Granger</a></li>
 </ul>
 </li>
@@ -151,20 +144,21 @@
 <p class="caption" role="heading"><span class="caption-text">Resultats et Analyses</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="results.html">Resultats</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-des-resultats-v3">Tableau de bord des resultats V3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#performances-de-prevision-walk-forward">Performances de prevision (walk-forward)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#rupture-structurelle-2022">Rupture structurelle 2022</a></li>
-<li class="toctree-l2"><a class="reference internal" href="results.html#early-warning-alerte-precoce">Early Warning — Alerte precoce</a></li>
-<li class="toctree-l2"><a class="reference internal" href="results.html#performances-modeles-statistiques">Performances modeles statistiques</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#detection-de-regime-early-warning">Detection de regime — Early Warning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
 <li class="toctree-l2"><a class="reference internal" href="results.html#performances-lstm-par-bloc">Performances LSTM par bloc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-complet">Tableau de bord complet</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="hypotheses.html">Validation des Hypotheses</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h1-besi-predit-le-stress-economique">H1 — BESI predit le stress economique</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h1-besi-et-detection-des-regimes-d-inflation">H1 — BESI et detection des regimes d’inflation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#criteres-de-validation">Criteres de validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#phrase-de-conclusion-pour-l-oral">Phrase de conclusion pour l’oral</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h2-le-signal-macro-ameliore-la-detection">H2 — Le signal macro ameliore la detection</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h2-variables-macroeconomiques-et-detection-des-regimes">H2 — Variables macroeconomiques et detection des regimes</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="hypotheses.html#id1">Criteres de validation</a></li>
 </ul>
 </li>
@@ -173,9 +167,8 @@
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Limites et Perspectives</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#limites-documentees">Limites documentees</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#limites-specifiques-au-deep-learning">Limites specifiques au Deep Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pourquoi-le-naif-gagne-en-rmse-explication">Pourquoi le naif gagne en RMSE — explication</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#perspectives-de-recherche">Perspectives de recherche</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#note-sur-le-choix-de-sarima-vs-deep-learning">Note sur le choix de SARIMA vs Deep Learning</a></li>
 </ul>
 </li>
 </ul>
@@ -256,92 +249,73 @@
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>IPC HCP disponible depuis 2017 seulement</p></td>
+<tr class="row-even"><td><p>Naif gagne en RMSE global</p></td>
+<td><p>SARIMAX + BESI moins precis</p></td>
+<td><p>Evaluer sur criteres de regime</p></td>
+</tr>
+<tr class="row-odd"><td><p>IPC HCP disponible depuis 2017 seulement</p></td>
 <td><p>Seulement 96 observations</p></td>
 <td><p>Recuperer archives HCP pre-2017</p></td>
 </tr>
-<tr class="row-odd"><td><p>MAD/EUR par interpolation lineaire</p></td>
+<tr class="row-even"><td><p>MAD/EUR par interpolation lineaire</p></td>
 <td><p>Donnees BAM non open data</p></td>
 <td><p>Recuperer donnees officielles BAM</p></td>
 </tr>
+<tr class="row-odd"><td><p>NLP Hespress : 30-90 jours seulement</p></td>
+<td><p>Pas d’historique long terme</p></td>
+<td><p>Documenter comme CAS C</p></td>
+</tr>
 <tr class="row-even"><td><p>Reddit/YouTube absents</p></td>
-<td><p>BESI = Trends seul</p></td>
+<td><p>BESI = Trends + presse seulement</p></td>
 <td><p>Documenter comme limite methodolog.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Granger non significatif</p></td>
-<td><p>Relation non-lineaire non captee</p></td>
+<td><p>Relation non-lineaire</p></td>
 <td><p>Explorer modeles a seuil (TAR, STAR)</p></td>
 </tr>
 <tr class="row-even"><td><p>AUC globale = 0.35</p></td>
 <td><p>Penalisee par Bloc A (COVID)</p></td>
-<td><p>Evaluer separement les types de choc</p></td>
+<td><p>Evaluer separement chocs exogenes</p></td>
 </tr>
 <tr class="row-odd"><td><p>LSTM inefficace sur Bloc B</p></td>
 <td><p>60 obs. insuffisantes pour DL</p></td>
-<td><p>Attendre plus de donnees disponibles</p></td>
-</tr>
-<tr class="row-even"><td><p>trends_carburant = 100% NaN</p></td>
-<td><p>Feature ignoree dans le LSTM</p></td>
-<td><p>Recollecte de cette serie</p></td>
+<td><p>Attendre plus de donnees</p></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="limites-specifiques-au-deep-learning">
-<h2>Limites specifiques au Deep Learning<a class="headerlink" href="#limites-specifiques-au-deep-learning" title="Lien vers cette rubrique"></a></h2>
-<p><strong>Taille du dataset :</strong>
-96 observations mensuelles dont 60 pour l’entrainement sont
-structurellement insuffisantes pour un reseau LSTM. La litterature
-recommande plusieurs milliers de sequences pour un apprentissage robuste.</p>
-<p><strong>Rupture hors distribution :</strong>
-Le choc inflationniste de 2022 (x11.6) est si eloigne de la
-distribution d’entrainement 2017-2021 que ni MinMaxScaler ni
-RobustScaler ne peuvent corriger l’extrapolation catastrophique.</p>
-<p><strong>Non-linearite limitee :</strong>
-L’IPC marocain est tres lisse et saisonnier. Il n’y a pas assez de
-non-linearites complexes pour justifier un reseau de neurones —
-SARIMA les capture avec 5 parametres seulement.</p>
+<section id="pourquoi-le-naif-gagne-en-rmse-explication">
+<h2>Pourquoi le naif gagne en RMSE — explication<a class="headerlink" href="#pourquoi-le-naif-gagne-en-rmse-explication" title="Lien vers cette rubrique"></a></h2>
+<p>C’est un resultat classique en economie des series macroeconomiques.
+L’IPC marocain est tres persistant (proche d’une racine unitaire).
+Predire « le mois prochain = ce mois » (modele naif de persistance)
+minimise l’erreur quadratique sur une serie aussi lisse.</p>
+<p>Ce n’est pas un echec du projet — c’est un resultat honnete qui
+souligne que <strong>la valeur du BESI est dans la detection de regime</strong>
+(Recall = 1.00 sur 2022-2024) et non dans la precision mensuelle.</p>
 </section>
 <section id="perspectives-de-recherche">
 <h2>Perspectives de recherche<a class="headerlink" href="#perspectives-de-recherche" title="Lien vers cette rubrique"></a></h2>
 <p><strong>Court terme</strong></p>
 <ul class="simple">
-<li><p>Optimiser les poids BESI par validation croisee temporelle</p></li>
+<li><p>Evaluer le BESI sur des metriques de regime plutot que de prevision</p></li>
 <li><p>Tester Prophet (changepoints automatiques pour gerer 2022)</p></li>
-<li><p>Ajouter donnees HCP haute frequence (hebdomadaires si disponibles)</p></li>
-<li><p>Recuperer la serie <code class="docutils literal notranslate"><span class="pre">trends_carburant</span></code> manquante</p></li>
+<li><p>Etendre le NLP Hespress avec un historique plus long (Scrapy)</p></li>
 </ul>
 <p><strong>Moyen terme</strong></p>
 <ul class="simple">
-<li><p><strong>NLP sur Darija :</strong> analyse de sentiment sur Reddit r/Morocco
-en langue darija pour enrichir le BESI</p></li>
-<li><p><strong>Modele TVP-SARIMAX :</strong> coefficients variables dans le temps
+<li><p><strong>Modele TVP-SARIMAX</strong> : coefficients variables dans le temps
 pour gerer la rupture 2022 sans segmentation manuelle</p></li>
-<li><p><strong>Modeles a seuil (TAR/STAR) :</strong> capturer la non-linearite
-confirmee par le test de Granger bidirectionnel</p></li>
+<li><p><strong>Modeles a seuil (TAR/STAR)</strong> : capturer la non-linearite
+confirmee par Granger</p></li>
 <li><p>Obtenir les donnees BAM officielles pour le taux MAD/EUR</p></li>
 </ul>
 <p><strong>Long terme</strong></p>
 <ul class="simple">
 <li><p>Dashboard temps reel (mise a jour automatique mensuelle)</p></li>
 <li><p>Extension a d’autres pays MENA (Algerie, Tunisie, Egypte)</p></li>
-<li><p>Publication academique dans une revue d’economie appliquee</p></li>
-<li><p>Comparaison avec l’indice de confiance des consommateurs
-publie par le HCP (si disponible)</p></li>
+<li><p>Publication academique en economie appliquee</p></li>
 </ul>
-</section>
-<section id="note-sur-le-choix-de-sarima-vs-deep-learning">
-<h2>Note sur le choix de SARIMA vs Deep Learning<a class="headerlink" href="#note-sur-le-choix-de-sarima-vs-deep-learning" title="Lien vers cette rubrique"></a></h2>
-<p>Ce projet demontre empiriquement que sur des series macroeconomiques
-courtes (&lt; 100 observations) avec rupture structurelle, les modeles
-statistiques classiques dominent le deep learning. Ce resultat est
-coherent avec la litterature sur les series temporelles economiques
-courtes.</p>
-<p>Le deep learning apporte de la valeur <strong>uniquement</strong> sur le Bloc A
-(periode stable COVID, RMSE=1.38 vs Naif=1.609). Ce resultat partiel
-montre le potentiel du LSTM pour les periodes sans rupture structurelle,
-mais confirme ses limites fondamentales sur les chocs economiques
-majeurs hors distribution.</p>
 </section>
 </section>
 

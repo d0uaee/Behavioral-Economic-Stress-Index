@@ -1,7 +1,7 @@
 BESI — Behavioral Economic Stress Index
 ========================================
 
-**Detection Precoce du Stress Economique des Menages au Maroc**
+**Detection Precoce des Regimes d'Inflation au Maroc**
 
 | **Auteurs :** Douae Ahadji & Adama Basse
 | **Cours :** Series Temporelles — ENSAM Meknes
@@ -13,14 +13,16 @@ BESI — Behavioral Economic Stress Index
 **Resume du projet**
 
 Ce projet construit **BESI** (*Behavioral Economic Stress Index*), un indice composite
-de stress economique fonde sur les signaux digitaux comportementaux marocains
-(Google Trends), et l'integre dans un modele **SARIMAX** pour la prevision de l'IPC
-(Indice des Prix a la Consommation) mensuel du Maroc (2017-2024).
+fonde sur les signaux digitaux comportementaux marocains (Google Trends + presse Hespress),
+et l'integre dans un modele **SARIMAX** pour detecter les regimes d'inflation de l'IPC
+mensuel du Maroc (2017-2024).
 
 **Resultats principaux (V3) :**
 
+- Le modele **naif (persistance) obtient le meilleur RMSE global (1.609)** — resultat honnete documente
 - SARIMAX + BESI ameliore l'AIC de **-7.77 points** vs SARIMA pur
-- SARIMAX + BESI detecte **100% des mois a inflation elevee** en 2022-2024
+- SARIMAX + BESI detecte **100% des mois a inflation elevee** en 2022-2024 (Recall = 1.00)
+- NLP Hespress (CAS C) : signal de validation recent, non integre dans le BESI principal
 - Rupture structurelle 2022 confirmee : inflation x11.6 (p < 0.0001)
 - H1 **partiellement validee** — H2 **rejetee**
 - GridSearch LSTM (96 combinaisons) : RMSE=1.38 sur Bloc A (COVID)

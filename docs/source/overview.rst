@@ -6,34 +6,34 @@ Contexte et motivation
 
 Les statistiques officielles de l'inflation au Maroc (IPC) sont publiees
 mensuellement par le **Haut-Commissariat au Plan (HCP)** avec un delai de
-3 a 6 semaines. Ce delai empeche une detection precoce du stress economique
-des menages.
+3 a 6 semaines. Ce delai empeche une detection precoce des changements
+de regime inflationniste.
 
 **Observation cle :** Quand les prix commencent a monter, les menages
 reagissent *avant* la publication officielle — ils cherchent sur Google
-"prix huile", "hausse prix", postent sur les reseaux sociaux, consultent
-des articles economiques. Ces comportements digitaux sont des **signaux avances**.
+"prix huile", "hausse prix", lisent des articles economiques sur Hespress.
+Ces comportements digitaux sont des **signaux avances de changement de regime**.
 
 Question de recherche
 ---------------------
 
-   *"Les signaux comportementaux digitaux (Google Trends) permettent-ils
-   de detecter et predire le stress economique des menages marocains
+   *"Les signaux comportementaux digitaux (Google Trends, presse Hespress)
+   permettent-ils de detecter les changements de regime d'inflation au Maroc
    avant les statistiques officielles ?"*
 
 Hypotheses testees
 ------------------
 
-**H1 :** Le BESI comportemental (base Google Trends) ameliore la detection
-des episodes d'inflation elevee par rapport a un modele SARIMA seul.
+**H1 :** Le BESI comportemental apporte une information utile pour la
+detection des regimes d'inflation au Maroc.
 
-**H2 :** L'ajout de signaux macro-economiques (FAO + taux de change MAD/EUR)
-ameliore encore la detection par rapport au BESI comportemental seul.
+**H2 :** L'ajout de variables macroeconomiques au BESI comportemental
+ameliore la detection des regimes d'inflation au Maroc.
 
 Architecture du projet
 -----------------------
 
-Le projet suit une architecture **Bronze → Silver → Gold** :
+Le projet suit une architecture **Bronze -> Silver -> Gold** :
 
 .. code-block:: text
 
@@ -48,27 +48,33 @@ Le projet suit une architecture **Bronze → Silver → Gold** :
        +---> Modeles statistiques (SARIMA / SARIMAX)
        |         Walk-forward, Bloc A et Bloc B
        |
-       +---> Deep Learning (GridSearch LSTM)
-       |         96 combinaisons d'hyperparametres
+       +---> NLP Hespress (CAS C)
+       |         Signal de validation recent
        |
-       +---> Analyses
-                 Rupture structurelle, Granger, Early Warning
+       +---> Deep Learning (GridSearch LSTM)
+                 96 combinaisons d'hyperparametres
 
 Contributions originales
 ------------------------
 
-1. **Construction du BESI** : indice composite comportemental multi-sources,
-   calibre par LassoCV sans data leakage (IPC retire des features).
+1. **Construction du BESI comportemental** : indice composite base sur
+   Google Trends, calibre par LassoCV sans data leakage.
 
-2. **Protocole d'evaluation rigoureux** : deux blocs temporels distincts
-   (COVID 2020-2021 et Inflation 2022-2024) pour mesurer la robustesse.
+2. **NLP Hespress (CAS C)** : signal textuel issu de la presse marocaine
+   (Hespress, Le360, Medias24) via flux RSS. Utilise comme validation
+   recente du signal comportemental.
 
-3. **GridSearch LSTM** : 96 combinaisons d'hyperparametres testees avec
-   encodage cyclique du mois et normalisation strictement limitee au train.
+3. **Honnêtete sur les resultats de prevision** : le modele naif
+   (persistance) obtient le meilleur RMSE global (1.609). SARIMAX + BESI
+   apporte de la valeur via la detection de regime (Recall = 1.00 sur Bloc B)
+   mais pas via la precision point-par-point.
 
-4. **Resultat asymetrique du deep learning** : le LSTM bat le modele naif
-   sur le Bloc A (RMSE=1.38 vs 1.609) mais s'effondre sur le Bloc B
-   (RMSE=22 vs 1.609) a cause de la rupture structurelle de 2022.
+4. **GridSearch LSTM** : 96 combinaisons d'hyperparametres testees avec
+   encodage cyclique du mois et normalisation limitee au train.
+
+5. **Resultat asymetrique du deep learning** : le LSTM bat le modele naif
+   sur le Bloc A (RMSE=1.38) mais s'effondre sur le Bloc B (RMSE=19.74)
+   a cause de la rupture structurelle de 2022.
 
 Equipe et cadre academique
 ---------------------------
