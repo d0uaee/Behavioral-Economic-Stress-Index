@@ -1,4 +1,10 @@
 # PRESENTATION FINALE
+
+> Note de cadrage final V3 :
+> la formulation finale du projet doit etre comprise comme une
+> **detection des regimes d'inflation au Maroc**.
+> Les anciennes formulations en termes de "stress economique des menages"
+> correspondent a un cadrage initial plus large, conserve ici pour archive.
 ## Détection Précoce du Stress Économique des Ménages au Maroc
 ### Behavioral Economic Stress Index (BESI)
 

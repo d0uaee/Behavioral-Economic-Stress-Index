@@ -6,6 +6,7 @@ __pycache__/
 .claude/
 outputs/figures/
 outputs/models/
+outputs/manual-*/
 
 # Logs
 *.log
