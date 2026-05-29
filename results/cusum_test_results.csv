@@ -1,7 +1,0 @@
-label,cusum_stat,cusum_p,cusum_verdict
-BESI (behavioral_index_pure_lag1),1.8212,0.0026,INSTABILITÉ DÉTECTÉE
-trends_prix_alim,1.8092,0.0029,INSTABILITÉ DÉTECTÉE
-trends_inflation,1.7439,0.0046,INSTABILITÉ DÉTECTÉE
-trends_carburant,,,DONNÉES INSUFFISANTES
-trends_subvention,,,DONNÉES INSUFFISANTES
-trends_composite,1.8242,0.0026,INSTABILITÉ DÉTECTÉE

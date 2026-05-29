@@ -6,6 +6,9 @@ __pycache__/
 .claude/
 outputs/figures/
 outputs/models/
+outputs/manual-*/
+submission_prof_BESI_V3*/
+submission_prof_BESI_V3*.zip
 
 # Logs
 *.log
