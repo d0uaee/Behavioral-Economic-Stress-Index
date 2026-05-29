@@ -1,4 +1,0 @@
-modele,rmse,delta_rmse,aic,note
-Référence rapport (SARIMAX+BESI),1.976,0.0,57.09,rapport principal
-SARIMAX+BESI (ce script),1.7974718746324283,0.0,191.58951796872813,1-step-ahead Bloc B
-Hybride SARIMAX+BESI + LSTM résidus,2.0526959791039947,0.2552241044715664,,AIC non defini pour LSTM

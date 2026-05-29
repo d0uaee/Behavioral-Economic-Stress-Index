@@ -1,7 +1,0 @@
-Modele,type,AIC,BIC,LLF,Delta_AIC,RMSE_BlocA,RMSE_BlocB,Coef_exog,Pvalue_exog,bat_SARIMA,conclusion,mc_pvalue
-SARIMA pur,baseline,103.52,111.3,-46.76,0.0,1.5790738104653002,22.312292008831008,,,—,Baseline SARIMA pur,
-SARIMAX + BESI behavioral,signal_reel,100.8,110.14,-44.4,-2.72,1.5738,22.2071,4.5114,0.0731,Oui,Signal marginal (p<0.10),0.098
-SARIMAX + Placebo random_gaussien,placebo,104.74,114.08,-46.37,1.22,1.535,22.3231,-0.527,0.4389,Non,Neutre (pas d amelioration),
-SARIMAX + Placebo tendance_lineaire,placebo,105.36,114.7,-46.68,1.84,1.4371,20.9769,9.3129,0.7293,Non,Neutre (pas d amelioration),
-SARIMAX + Placebo besi_shuffle,placebo,101.44,110.77,-44.72,-2.08,1.9204,22.1887,-0.6922,0.1247,Oui,Legere amelioration AIC,
-SARIMAX + Placebo marche_aleatoire,placebo,105.09,114.42,-46.55,1.57,1.5928,21.8083,0.8819,0.6054,Non,Neutre (pas d amelioration),

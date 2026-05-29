@@ -1,4 +1,0 @@
-cible,r,p,est_cible
-inflation_yoy (variable cible),0.535,0.0,True
-fx_yoy MAD/EUR (placebo),-0.07,0.4968,False
-tendance_lineaire (placebo),0.818,0.0,False

@@ -1,5 +1,0 @@
-modele,converged,n_params,log_lik,aic,bic,error
-MS-AR(1) pur,True,7,-158.5876,331.1751,348.107,
-MS-AR(1) + BESI,True,8,-158.4343,332.8685,352.2193,
-SARIMAX pur (inflation_yoy),True,4,-146.2493,300.4986,309.5493,
-SARIMAX + BESI (inflation_yoy),True,5,-146.1925,302.385,313.6984,

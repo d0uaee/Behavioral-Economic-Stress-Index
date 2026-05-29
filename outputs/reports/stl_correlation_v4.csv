@@ -1,5 +1,0 @@
-signal,lag,r_brut,p_brut,r_residu_stl,p_residu_stl,biais_saisonnier
-BESI behavioral,0,0.535,0.0,0.228,0.0372,0.308
-BESI behavioral,1,0.537,0.0,0.173,0.1188,0.365
-BESI behavioral,2,0.524,0.0,0.144,0.1977,0.38
-BESI behavioral,3,0.512,0.0,0.185,0.0986,0.327
