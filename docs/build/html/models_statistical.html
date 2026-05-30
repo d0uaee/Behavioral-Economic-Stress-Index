@@ -1,0 +1,463 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="fr" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modeles Statistiques &mdash; Documentation BESI — Behavioral Economic Stress Index 3.0</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=99824b11"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/translations.js?v=e6b791cb"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Modeles Deep Learning" href="models_deep_learning.html" />
+    <link rel="prev" title="L’Indice BESI" href="besi_index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            BESI — Behavioral Economic Stress Index
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Rechercher docs" aria-label="Rechercher docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Demarrage rapide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#prerequis">Prerequis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#cloner-le-depot">Cloner le depot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#creer-un-environnement-virtuel">Creer un environnement virtuel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installer-les-dependances">Installer les dependances</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#verifier-l-installation">Verifier l’installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#structure-attendue-apres-installation">Structure attendue apres installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Demarrage rapide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#lancer-le-pipeline-complet-v3">Lancer le pipeline complet V3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#lancer-etape-par-etape">Lancer etape par etape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#lancer-le-deep-learning-gridsearch-lstm">Lancer le Deep Learning (GridSearch LSTM)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#executer-les-notebooks">Executer les notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#resultats-attendus">Resultats attendus</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Le Projet</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Vue d’ensemble du projet</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#contexte-et-motivation">Contexte et motivation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#question-de-recherche">Question de recherche</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#hypotheses-testees">Hypotheses testees</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#architecture-du-projet">Architecture du projet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#contributions-originales">Contributions originales</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html#equipe-et-cadre-academique">Equipe et cadre academique</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">Donnees</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data.html#sources-de-donnees">Sources de donnees</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#nlp-hespress-pourquoi-et-comment">NLP Hespress — pourquoi et comment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#architecture-bronze-silver-gold">Architecture Bronze -&gt; Silver -&gt; Gold</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data.html#bronze-donnees-brutes">Bronze — Donnees brutes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data.html#silver-donnees-nettoyees">Silver — Donnees nettoyees</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data.html#gold-dataset-final">Gold — Dataset final</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#colonnes-principales-du-gold-dataset">Colonnes principales du Gold dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#blocs-d-evaluation">Blocs d’evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#note-importante-sur-le-data-leakage">Note importante sur le data leakage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="besi_index.html">L’Indice BESI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#definition">Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-v3-behavioral-pur">Formule BESI V3 (behavioral pur)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#formule-besi-hybrid-v3-test-h2">Formule BESI Hybrid (V3 — test H2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#technique-du-chunking-ancre-google-trends">Technique du chunking ancre (Google Trends)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#selection-automatique-des-keywords">Selection automatique des keywords</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#interpretation-des-valeurs-besi">Interpretation des valeurs BESI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="besi_index.html#pourquoi-le-besi-perd-de-la-puissance-apres-2022">Pourquoi le BESI perd de la puissance apres 2022</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Modelisation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Modeles Statistiques</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#sarima-modele-de-reference">SARIMA — Modele de reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parametres-retenus-apres-grille-aic">Parametres retenus apres grille AIC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tests-de-stationnarite">Tests de stationnarite</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#sarimax-modele-avec-besi-exogene">SARIMAX — Modele avec BESI exogene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#resultats-honnetes-le-naif-gagne-en-rmse">Resultats honnetes — le naif gagne en RMSE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#test-de-chow-rupture-structurelle-2022">Test de Chow — Rupture structurelle 2022</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#causalite-de-granger">Causalite de Granger</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="models_deep_learning.html">Modeles Deep Learning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#architecture-lstm">Architecture LSTM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#preparation-des-features">Preparation des features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="models_deep_learning.html#encodage-cyclique-du-mois">Encodage cyclique du mois</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#normalisation-sans-data-leakage">Normalisation sans data leakage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#gridsearch-des-hyperparametres">GridSearch des hyperparametres</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#protocole-d-evaluation">Protocole d’evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#resultats-du-gridsearch-lstm">Resultats du GridSearch LSTM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#analyse-du-comportement-asymetrique">Analyse du comportement asymetrique</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#autres-modeles-testes">Autres modeles testes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#conclusion">Conclusion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models_deep_learning.html#fichiers-generes">Fichiers generes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="evaluation.html">Evaluation et Metriques</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="evaluation.html#metriques-de-prevision">Metriques de prevision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="evaluation.html#metriques-d-alerte-precoce">Metriques d’alerte precoce</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="evaluation.html#seuils-d-alerte-utilises">Seuils d’alerte utilises</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="evaluation.html#protocole-walk-forward">Protocole walk-forward</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Resultats et Analyses</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="results.html">Resultats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="results.html#performances-de-prevision-walk-forward">Performances de prevision (walk-forward)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#rupture-structurelle-2022">Rupture structurelle 2022</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#detection-de-regime-early-warning">Detection de regime — Early Warning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#nlp-hespress-cas-c">NLP Hespress — CAS C</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#performances-lstm-par-bloc">Performances LSTM par bloc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="results.html#tableau-de-bord-complet">Tableau de bord complet</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="hypotheses.html">Validation des Hypotheses</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h1-besi-et-detection-des-regimes-d-inflation">H1 — BESI et detection des regimes d’inflation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hypotheses.html#criteres-de-validation">Criteres de validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hypotheses.html#phrase-de-conclusion-pour-l-oral">Phrase de conclusion pour l’oral</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#h2-variables-macroeconomiques-et-detection-des-regimes">H2 — Variables macroeconomiques et detection des regimes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hypotheses.html#id1">Criteres de validation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hypotheses.html#synthese-generale">Synthese generale</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limites et Perspectives</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="limitations.html#limites-documentees">Limites documentees</a></li>
+<li class="toctree-l2"><a class="reference internal" href="limitations.html#pourquoi-le-naif-gagne-en-rmse-explication">Pourquoi le naif gagne en RMSE — explication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="limitations.html#perspectives-de-recherche">Perspectives de recherche</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Reference API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#modules-principaux">Modules principaux</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#src-deep-learning-py">src/deep_learning.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#src-evaluation-backtest-py">src/evaluation/backtest.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#src-evaluation-warning-metrics-py">src/evaluation/warning_metrics.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#src-features-indexes-py">src/features/indexes.py</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#fichiers-de-sortie">Fichiers de sortie</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#rapports-csv-outputs-reports">Rapports CSV (outputs/reports/)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks.html">Notebooks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks.html#exploration-v3-ipynb">01_exploration_v3.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks.html#modeling-v3-ipynb">02_modeling_v3.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks.html#analysis-v3-ipynb">03_analysis_v3.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks.html#results-v3-ipynb">04_results_v3.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks.html#executer-les-notebooks">Executer les notebooks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Fichiers de sortie</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#figures-outputs-figures">Figures (outputs/figures/)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#rapports-csv-outputs-reports">Rapports CSV (outputs/reports/)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#modeles-sauvegardes-outputs-models">Modeles sauvegardes (outputs/models/)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">A propos</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#version-3-0-mai-2026-actuelle">Version 3.0 — Mai 2026 (actuelle)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#version-2-0-mars-2026">Version 2.0 — Mars 2026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="changelog.html#version-1-0-fevrier-2026">Version 1.0 — Fevrier 2026</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">BESI — Behavioral Economic Stress Index</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Modeles Statistiques</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/d0uaee/Behavioral-Economic-Stress-Index/blob/main/docs/source/models_statistical.rst" class="fa fa-github"> Éditer sur GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="modeles-statistiques">
+<h1>Modeles Statistiques<a class="headerlink" href="#modeles-statistiques" title="Lien vers cette rubrique"></a></h1>
+<section id="sarima-modele-de-reference">
+<h2>SARIMA — Modele de reference<a class="headerlink" href="#sarima-modele-de-reference" title="Lien vers cette rubrique"></a></h2>
+<p><strong>SARIMA</strong> = Seasonal AutoRegressive Integrated Moving Average</p>
+<div class="math notranslate nohighlight">
+\[SARIMA(p, d, q) \times (P, D, Q)[m]\]</div>
+<section id="parametres-retenus-apres-grille-aic">
+<h3>Parametres retenus apres grille AIC<a class="headerlink" href="#parametres-retenus-apres-grille-aic" title="Lien vers cette rubrique"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>SARIMA(1, 1, 1) x (1, 0, 1)[12]   AIC Train A = 64.85
+</pre></div>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parametre</p></th>
+<th class="head"><p>Valeur</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>p = 1</p></td>
+<td><p>AR(1)</p></td>
+<td><p>1 valeur passee influence la valeur</p></td>
+</tr>
+<tr class="row-odd"><td><p>d = 1</p></td>
+<td><p>I(1)</p></td>
+<td><p>1 difference pour stationnariser</p></td>
+</tr>
+<tr class="row-even"><td><p>q = 1</p></td>
+<td><p>MA(1)</p></td>
+<td><p>1 erreur passee influence la valeur</p></td>
+</tr>
+<tr class="row-odd"><td><p>P = 1</p></td>
+<td><p>SAR(1)</p></td>
+<td><p>AR saisonnier</p></td>
+</tr>
+<tr class="row-even"><td><p>D = 0</p></td>
+<td><p>SI(0)</p></td>
+<td><p>Pas de difference saisonniere</p></td>
+</tr>
+<tr class="row-odd"><td><p>Q = 1</p></td>
+<td><p>SMA(1)</p></td>
+<td><p>MA saisonnier</p></td>
+</tr>
+<tr class="row-even"><td><p>m = 12</p></td>
+<td><p>—</p></td>
+<td><p>Periodicite mensuelle</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="tests-de-stationnarite">
+<h3>Tests de stationnarite<a class="headerlink" href="#tests-de-stationnarite" title="Lien vers cette rubrique"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Serie</p></th>
+<th class="head"><p>ADF p-val</p></th>
+<th class="head"><p>KPSS p-val</p></th>
+<th class="head"><p>Decision</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>IPC en niveau</p></td>
+<td><p>0.363</p></td>
+<td><p>&lt; 0.05</p></td>
+<td><p>Non stationnaire</p></td>
+</tr>
+<tr class="row-odd"><td><p>IPC diff(1)</p></td>
+<td><p>0.021</p></td>
+<td><p>&gt; 0.05</p></td>
+<td><p>Stationnaire</p></td>
+</tr>
+<tr class="row-even"><td><p>BESI niveau</p></td>
+<td><p>0.089</p></td>
+<td><p>&gt; 0.05</p></td>
+<td><p>Ambigu</p></td>
+</tr>
+<tr class="row-odd"><td><p>BESI diff(1)</p></td>
+<td><p>0.003</p></td>
+<td><p>&gt; 0.05</p></td>
+<td><p>Stationnaire</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="sarimax-modele-avec-besi-exogene">
+<h2>SARIMAX — Modele avec BESI exogene<a class="headerlink" href="#sarimax-modele-avec-besi-exogene" title="Lien vers cette rubrique"></a></h2>
+<div class="math notranslate nohighlight">
+\[IPC_t = SARIMA(IPC_{t-k}) + \beta \cdot BESI_{t} + \varepsilon_t\]</div>
+<p>Resultats :</p>
+<ul class="simple">
+<li><p>AIC SARIMAX + BESI behavioral = <strong>57.09</strong> (vs SARIMA = 64.85)</p></li>
+<li><p>Delta AIC = <strong>-7.77</strong> — amelioration statistiquement significative</p></li>
+<li><p>Coefficient BESI post-2022 : -60% (rupture structurelle confirmee)</p></li>
+</ul>
+</section>
+<section id="resultats-honnetes-le-naif-gagne-en-rmse">
+<h2>Resultats honnetes — le naif gagne en RMSE<a class="headerlink" href="#resultats-honnetes-le-naif-gagne-en-rmse" title="Lien vers cette rubrique"></a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Le modele <strong>naif (persistance) obtient le meilleur RMSE global (1.609)</strong>.
+Ce resultat est documente et assume. L’IPC marocain est tres persistant
+(proche d’une marche aleatoire) — predire « le mois prochain = ce mois »
+fonctionne bien en precision point-par-point.</p>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Modele</p></th>
+<th class="head"><p>RMSE</p></th>
+<th class="head"><p>MAE</p></th>
+<th class="head"><p>MAPE</p></th>
+<th class="head"><p>AIC</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Naif (persistance) MEILLEUR</p></td>
+<td><p>1.609</p></td>
+<td><p>1.200</p></td>
+<td><p>1.06%</p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-odd"><td><p>SARIMA(1,1,1)(1,0,1)[12]</p></td>
+<td><p>1.923</p></td>
+<td><p>1.537</p></td>
+<td><p>1.38%</p></td>
+<td><p>64.85</p></td>
+</tr>
+<tr class="row-even"><td><p>SARIMAX + BESI behavioral</p></td>
+<td><p>1.891</p></td>
+<td><p>1.522</p></td>
+<td><p>1.36%</p></td>
+<td><p>57.09</p></td>
+</tr>
+<tr class="row-odd"><td><p>SARIMAX + Hybrid macro</p></td>
+<td><p>1.997</p></td>
+<td><p>1.576</p></td>
+<td><p>1.42%</p></td>
+<td><p>—</p></td>
+</tr>
+</tbody>
+</table>
+<p>La valeur de SARIMAX + BESI est dans la <strong>detection de regime</strong>
+(Recall = 1.00 sur Bloc B, AIC meilleur) et non dans la RMSE.</p>
+</section>
+<section id="test-de-chow-rupture-structurelle-2022">
+<h2>Test de Chow — Rupture structurelle 2022<a class="headerlink" href="#test-de-chow-rupture-structurelle-2022" title="Lien vers cette rubrique"></a></h2>
+<div class="math notranslate nohighlight">
+\[F = \frac{(RSS_c - RSS_{nc}) / k}{RSS_{nc} / (n - 2k)}\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Statistique</p></th>
+<th class="head"><p>Valeur</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>F-statistique</p></td>
+<td><p><strong>198.5</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>p-value</p></td>
+<td><p><strong>&lt; 0.001</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>Rupture</p></td>
+<td><p><strong>CONFIRMEE</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>Inflation pre-2022 (moyenne)</p></td>
+<td><p>+0.74% YoY</p></td>
+</tr>
+<tr class="row-even"><td><p>Inflation post-2022 (moyenne)</p></td>
+<td><p>+8.53% YoY</p></td>
+</tr>
+<tr class="row-odd"><td><p>Facteur multiplicatif</p></td>
+<td><p><strong>x11.6</strong></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="causalite-de-granger">
+<h2>Causalite de Granger<a class="headerlink" href="#causalite-de-granger" title="Lien vers cette rubrique"></a></h2>
+<p>Test bidirectionnel sur lags 1-4 :</p>
+<ul class="simple">
+<li><p>BESI -&gt; Inflation : <strong>non significatif</strong> (p &gt; 0.62 a tous les lags)</p></li>
+<li><p>Inflation -&gt; BESI : <strong>non significatif</strong></p></li>
+</ul>
+<p><strong>Interpretation :</strong> La relation est non-lineaire. Le BESI agit comme
+detecteur de regime d’inflation, pas comme predicteur causal lineaire.
+C’est pour cela qu’un modele LSTM peut theoriquement apporter de la
+valeur sur les periodes stables (confirme sur Bloc A).</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Pied de page">
+        <a href="besi_index.html" class="btn btn-neutral float-left" title="L’Indice BESI" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Précédent</a>
+        <a href="models_deep_learning.html" class="btn btn-neutral float-right" title="Modeles Deep Learning" accesskey="n" rel="next">Suivant <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Droits d'auteur 2026, Douae Ahadji &amp; Adama Basse — ENSAM Meknes.</p>
+  </div>
+
+  Compilé avec <a href="https://www.sphinx-doc.org/">Sphinx</a> en utilisant un
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">thème</a>
+    fourni par <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
