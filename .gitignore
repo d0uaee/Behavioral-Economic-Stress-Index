@@ -7,8 +7,10 @@ __pycache__/
 outputs/figures/
 outputs/models/
 outputs/manual-*/
+outputs/stage_lafarge_2026/
 submission_prof_BESI_V3*/
 submission_prof_BESI_V3*.zip
+docs/_build/
 
 # Logs
 *.log

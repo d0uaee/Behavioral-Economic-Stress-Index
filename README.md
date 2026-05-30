@@ -5,6 +5,9 @@
 **Version :** V3 finalisee sur donnees reelles  
 **Periode analysee :** 2017-01 a 2024-12
 
+**Documentation en ligne (Read the Docs) :**  
+<https://behavioral-economic-stress-index.readthedocs.io/fr/latest/>
+
 ## Resume
 
 Ce projet teste si des signaux digitaux marocains peuvent aider a detecter des
@@ -75,6 +78,18 @@ project/
 |-- run_v3.py
 |-- README.md
 |-- docs/
+|   |-- index.md
+|   |-- installation.md
+|   |-- quickstart.md
+|   |-- architecture.md
+|   |-- data.md
+|   |-- methodology.md
+|   |-- scripts.md
+|   |-- results.md
+|   |-- limitations.md
+|   |-- perspectives.md
+|   |-- faq.md
+|   |-- references.md
 |   |-- repo_guide.md
 |   |-- v3_problem_statement.md
 |   |-- data_dictionary_v3.md
@@ -104,19 +119,12 @@ project/
     `-- nlp_lasso_weights.csv
 ```
 
-## Elements legacy conserves pour reference
+La documentation Read the Docs complete vit dans `docs/` et s'appuie sur
+Sphinx + MyST.
 
-Le repo contient encore des fichiers V1/V2 ou de soutenance intermediaire.
-Ils sont utiles pour la trace du travail, mais ils ne doivent pas etre pris
-comme source principale de verite pour la version finale.
+Lien public direct :
 
-Exemples :
-
-- `DOCUMENTATION.md`
-- `PRESENTATION_FINALE.md`
-- `SCRIPT_ORAL.md`
-- anciens notebooks hors prefixe `01_` a `04_`
-- anciens scripts monolithiques dans `src/*.py`
+- <https://behavioral-economic-stress-index.readthedocs.io/fr/latest/>
 
 ## Donnees utilisees en V3
 
