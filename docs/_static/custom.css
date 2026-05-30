@@ -1,0 +1,13 @@
+:root {
+  --content-max-width: 920px;
+}
+
+.sidebar-brand-text {
+  font-weight: 700;
+}
+
+.toctree-wrapper p.caption {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+

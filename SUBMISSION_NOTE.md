@@ -2,6 +2,9 @@
 
 Cette version est volontairement minimale pour la remise au professeur.
 
+Documentation en ligne :
+- https://behavioral-economic-stress-index.readthedocs.io/fr/latest/
+
 Inclus :
 - presentation finale
 - README et docs V3

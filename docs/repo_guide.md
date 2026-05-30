@@ -1,7 +1,7 @@
 # Repository guide - BESI V3
 
-Ce document sert a lire rapidement le repo final sans se perdre entre les
-elements actifs de la V3 et les artefacts plus anciens.
+Ce document sert a lire rapidement le **repo final de remise** et a retrouver
+les fichiers les plus utiles sans parcourir tout le depot.
 
 ## 1. Entree principale
 
@@ -49,19 +49,7 @@ Le point d'entree principal du projet final est :
 - `outputs/reports/nlp_besi_comparison.csv`
 - `outputs/reports/nlp_lasso_weights.csv`
 
-## 3. Ce qui est garde pour reference
-
-Ces fichiers ou dossiers ne sont pas la base de verite finale de la V3, mais
-ils restent utiles pour montrer l'evolution du projet :
-
-- `DOCUMENTATION.md`
-- `PRESENTATION_FINALE.md`
-- `SCRIPT_ORAL.md`
-- anciens notebooks hors serie `01` a `04`
-- anciens scripts monolithiques a la racine de `src/`
-- certains rapports `v2`, `v4`, `lstm`, `prophet`, `placebo`, etc.
-
-## 4. Regle pratique
+## 3. Regle pratique
 
 Si une information est contradictoire dans le repo, la priorite de lecture est :
 
@@ -70,4 +58,5 @@ Si une information est contradictoire dans le repo, la priorite de lecture est :
 3. `outputs/reports/*.csv`
 4. `docs/*`
 
-Les fichiers legacy ne doivent pas primer sur ces livrables.
+En cas de divergence, les rapports V3 finaux et les CSV de sortie priment sur
+les formulations plus anciennes.
