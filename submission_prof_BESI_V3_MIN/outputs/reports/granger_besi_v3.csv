@@ -1,0 +1,5 @@
+lag,f_stat,p_value,significant,signal,target
+1,0.23759649900182808,0.6272805439223197,False,behavioral_index_pure,inflation_yoy
+2,0.24761707272323943,0.7812780441102574,False,behavioral_index_pure,inflation_yoy
+3,0.2352501797320718,0.8715275071764667,False,behavioral_index_pure,inflation_yoy
+4,0.1999165454471076,0.9376003741273912,False,behavioral_index_pure,inflation_yoy

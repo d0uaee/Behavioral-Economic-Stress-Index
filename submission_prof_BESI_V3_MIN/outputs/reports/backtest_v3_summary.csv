@@ -1,0 +1,5 @@
+model,rmse,mae,mape,smape,mase,theils_u,interpretation
+naif,1.6094,1.2,1.0635,1.0689,0.9822,1.0,Erreur faible | Meilleur que la naive
+sarima,1.9227,1.5373,1.3796,1.3812,1.2848,1.2194,Erreur faible
+sarimax_behavioral,1.8914,1.5225,1.3629,1.3639,1.2658,1.1926,Erreur faible
+sarimax_hybrid,1.9974,1.5765,1.4172,1.4177,1.3193,1.2682,Erreur faible
