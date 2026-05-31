@@ -2,7 +2,7 @@
 
 **Detection precoce des regimes d'inflation au Maroc via signaux comportementaux digitaux**
 
-Bienvenue dans la documentation technique et academique de **BESI V3**.
+Bienvenue dans la documentation technique et methodologique de **BESI V3**.
 
 Cette documentation est concue pour accompagner un depot GitHub et une
 publication Read the Docs. Elle documente a la fois :
@@ -78,4 +78,3 @@ data_dictionary_v3
 repo_guide
 appendices
 ```
-
